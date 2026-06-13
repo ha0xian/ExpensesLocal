@@ -210,12 +210,34 @@ export default function App() {
     }
   }, []);
 
-  const handleUpdateMapping = useCallback((name, value) => {
+  const handleUpdateMapping = useCallback(async (name, value) => {
+    const newMapping = { ...bankImport.mapping, [name]: value };
     setBankImport((previous) => ({
       ...previous,
-      mapping: { ...previous.mapping, [name]: value },
+      mapping: newMapping,
     }));
-  }, []);
+    // Recompute preview from backend so the table stays in sync
+    if (bankImport.rows.length) {
+      try {
+        // Re-serialize the original rows to CSV text for the backend call
+        const headerLine = bankImport.headers.join(",");
+        const bodyLines = bankImport.rows.map((row) =>
+          bankImport.headers.map((h) => {
+            const cell = row[h] || "";
+            return /[",\r\n]/.test(cell) ? `"${cell.replaceAll('"', '""')}"` : cell;
+          }).join(",")
+        );
+        const csvText = [headerLine, ...bodyLines].join("\r\n");
+        const result = await api.bankImportPreview(csvText, newMapping);
+        setBankImport((previous) => ({
+          ...previous,
+          previewRows: result.previewRows,
+        }));
+      } catch {
+        // Silently keep the stale preview if the backend call fails
+      }
+    }
+  }, [bankImport.headers, bankImport.rows]);
 
   const handleAddImportedTransactions = useCallback(async () => {
     try {

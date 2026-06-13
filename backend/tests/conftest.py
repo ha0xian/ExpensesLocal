@@ -1,23 +1,34 @@
-"""Shared test fixtures."""
+"""Shared test fixtures — all tests use a temporary data directory."""
 
-import os
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 # Ensure backend/app is on sys.path when running from backend/ or backend/tests/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Patch APP_CSV_PATH before any app import so tests never touch the real data file.
+_TEMP_DATA_DIR = tempfile.TemporaryDirectory()
+_TEMP_CSV_PATH = Path(_TEMP_DATA_DIR.name) / "expense-data.csv"
+
+# Apply the patch at module level so all imports of state_service, csv_storage,
+# etc. pick up the temp path.
+_patcher = patch("app.config.APP_CSV_PATH", _TEMP_CSV_PATH)
+_patcher.start()
+
+
+def pytest_unconfigure():
+    """Clean up temp directory after the test session."""
+    _patcher.stop()
+    _TEMP_DATA_DIR.cleanup()
+
+
+# Re-import after patching so modules see the patched path
 from app.csv_storage import parse_app_csv, save_state, serialize_app_csv
 from app.schema_defaults import create_initial_state
-
-
-@pytest.fixture
-def temp_data_dir():
-    with tempfile.TemporaryDirectory() as td:
-        yield Path(td)
 
 
 @pytest.fixture
@@ -31,7 +42,6 @@ def populated_state():
     state = create_initial_state()
     state["selectedMonth"] = "2026-06"
     state["currency"] = "USD"
-    # Add a couple of transactions
     state["transactions"] = [
         {
             "id": "txn-1",

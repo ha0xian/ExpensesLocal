@@ -66,33 +66,26 @@ def test_reject_csv_missing_required_records():
         parse_app_csv(csv_text)
 
 
-def test_file_save_and_load(temp_data_dir):
-    """Save state to disk and load it back."""
+def test_file_save_and_load():
+    """Save state to disk and load it back (uses temp path from conftest)."""
     from app.config import APP_CSV_PATH
-    import app.config as config_mod
 
-    # Override path temporarily
-    original = config_mod.APP_CSV_PATH
-    config_mod.APP_CSV_PATH = temp_data_dir / "test.csv"
-    try:
-        state = create_initial_state()
-        save_state(state, config_mod.APP_CSV_PATH)
-        loaded = load_state(config_mod.APP_CSV_PATH)
-        assert loaded["selectedMonth"] == state["selectedMonth"]
-        assert len(loaded["categories"]) == len(state["categories"])
-    finally:
-        config_mod.APP_CSV_PATH = original
+    state = create_initial_state()
+    save_state(state)
+    assert APP_CSV_PATH.exists()
+    loaded = load_state(APP_CSV_PATH)
+    assert loaded["selectedMonth"] == state["selectedMonth"]
+    assert len(loaded["categories"]) == len(state["categories"])
 
 
-def test_ensure_data_file_creates(temp_data_dir):
-    """ensure_data_file creates a new CSV when none exists."""
-    import app.config as config_mod
-    original = config_mod.APP_CSV_PATH
-    config_mod.APP_CSV_PATH = temp_data_dir / "new.csv"
-    try:
-        assert not config_mod.APP_CSV_PATH.exists()
-        state = ensure_data_file(config_mod.APP_CSV_PATH)
-        assert config_mod.APP_CSV_PATH.exists()
-        assert len(state["categories"]) > 0
-    finally:
-        config_mod.APP_CSV_PATH = original
+def test_ensure_data_file_creates():
+    """ensure_data_file returns state when file already exists (created by conftest)."""
+    from app.config import APP_CSV_PATH
+
+    # The conftest patch creates the file on first use; delete it to test creation
+    if APP_CSV_PATH.exists():
+        APP_CSV_PATH.unlink()
+    assert not APP_CSV_PATH.exists()
+    state = ensure_data_file()
+    assert APP_CSV_PATH.exists()
+    assert len(state["categories"]) > 0

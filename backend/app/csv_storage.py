@@ -173,164 +173,130 @@ def _escape_csv(value: str) -> str:
     return text
 
 
+def _make_row(**values) -> list[str]:
+    """Build a CSV row list with exactly len(CSV_COLUMNS) entries.
+
+    All columns default to empty string; only keys in ``values`` are set.
+    """
+    row = [values.get(col, "") for col in CSV_COLUMNS]
+    # Convert booleans to lowercase strings
+    for i, val in enumerate(row):
+        if isinstance(val, bool):
+            row[i] = str(val).lower()
+    return row
+
+
 def serialize_app_csv(state: dict) -> str:
-    """Serialize state dict into the normalized multi-record-type app CSV string."""
+    """Serialize state dict into the normalized multi-record-type app CSV string.
+
+    Every row is guaranteed to have exactly len(CSV_COLUMNS) fields.
+    """
     currency = state.get("currency", "USD")
     rows: list[list[str]] = []
 
     # meta
-    rows.append([
-        "meta", "app",
-        str(state.get("lastAccessedAt", "")),
-        str(state.get("lastAutomationRunAt", "")),
-        "",  # date
-        state.get("selectedMonth", ""),
-        "",  # type
-        "",  # category
-        "",  # subcategory
-        "",  # account
-        "",  # merchant_payee
-        "",  # description
-        "",  # amount
-        currency,  # currency
-        "", "", "",  # essential, reimbursable, notes
-        "", "", "", "", "",  # enabled, start_date, end_date, frequency, custom_interval
-        "",  # custom_unit
-        "",  # source_rule_id
-        "", "", "", "", "", "", "", "", "",  # group, default_budget, tax_business_ready, etc.
-    ])
+    rows.append(_make_row(
+        record_type="meta",
+        id="app",
+        last_accessed_at=str(state.get("lastAccessedAt", "")),
+        last_automation_run_at=str(state.get("lastAutomationRunAt", "")),
+        month=state.get("selectedMonth", ""),
+        currency=currency,
+    ))
 
     # categories
     for item in state.get("categories", []):
-        rows.append([
-            "category", item.get("id", ""),
-            "", "", "", "", "",  # last_accessed_at, last_automation_run_at, date, month, type
-            item.get("name", ""),  # category
-            "",  # subcategory
-            "", "", "", "", "",  # account, merchant_payee, description, amount, currency
-            "", "",  # essential, reimbursable
-            item.get("notes", ""),  # notes
-            "", "", "", "", "", "", "",  # enabled, start_date, end_date, frequency, custom_interval, custom_unit, source_rule_id
-            item.get("group", ""),  # group
-            str(item.get("defaultBudget", 0)),  # default_budget
-            item.get("taxBusinessReady", "No"),  # tax_business_ready
-            "", "", "", "", "", "",  # envelope_group, envelope_style, default_monthly_target, monthly_target, starting_balance, rollover
-            "",  # opening_balance
-            "",  # account_type
-        ])
+        rows.append(_make_row(
+            record_type="category",
+            id=item.get("id", ""),
+            category=item.get("name", ""),
+            group=item.get("group", ""),
+            default_budget=str(item.get("defaultBudget", 0)),
+            tax_business_ready=item.get("taxBusinessReady", "No"),
+            notes=item.get("notes", ""),
+        ))
 
     # subcategories
     for item in state.get("subcategories", []):
-        rows.append([
-            "subcategory", item.get("id", ""),
-            "", "", "", "", "",  # last_accessed_at, last_automation_run_at, date, month, type
-            item.get("category", ""),  # category
-            item.get("name", ""),  # subcategory
-            "", "", "", "", "",  # account, merchant_payee, description, amount, currency
-            "", "",  # essential, reimbursable
-            item.get("notes", ""),  # notes
-            "", "", "", "", "", "", "",  # enabled, start_date, end_date, frequency, custom_interval, custom_unit, source_rule_id
-            "",  # group
-            "",  # default_budget
-            "",  # tax_business_ready
-            item.get("envelopeGroup", ""),  # envelope_group
-            item.get("envelopeStyle", "Variable"),  # envelope_style
-            str(item.get("defaultMonthlyTarget", 0)),  # default_monthly_target
-            "", "", "",  # monthly_target, starting_balance, rollover
-            "",  # opening_balance
-            "",  # account_type
-        ])
+        rows.append(_make_row(
+            record_type="subcategory",
+            id=item.get("id", ""),
+            category=item.get("category", ""),
+            subcategory=item.get("name", ""),
+            envelope_group=item.get("envelopeGroup", ""),
+            envelope_style=item.get("envelopeStyle", "Variable"),
+            default_monthly_target=str(item.get("defaultMonthlyTarget", 0)),
+            notes=item.get("notes", ""),
+        ))
 
     # accounts
     for item in state.get("accounts", []):
-        rows.append([
-            "account", item.get("id", ""),
-            "", "", "", "", "", "", "",  # last_accessed_at, last_automation_run_at, date, month, type, category, subcategory
-            item.get("name", ""),  # account
-            "", "", "", "",  # merchant_payee, description, amount, currency
-            "", "",  # essential, reimbursable
-            item.get("notes", ""),  # notes
-            "", "", "", "", "", "", "",  # enabled ... source_rule_id
-            "", "", "",  # group, default_budget, tax_business_ready
-            "", "", "", "", "", "",  # envelope_group, envelope_style, default_monthly_target, monthly_target, starting_balance, rollover
-            str(item.get("openingBalance", 0)),  # opening_balance
-            item.get("type", "Bank"),  # account_type
-        ])
+        rows.append(_make_row(
+            record_type="account",
+            id=item.get("id", ""),
+            account=item.get("name", ""),
+            account_type=item.get("type", "Bank"),
+            opening_balance=str(item.get("openingBalance", 0)),
+            notes=item.get("notes", ""),
+        ))
 
     # monthly_setup
     for item in state.get("monthlySetup", []):
-        rows.append([
-            "monthly_setup", item.get("id", ""),
-            "", "", "",  # last_accessed_at, last_automation_run_at, date
-            item.get("month", ""),  # month
-            "",  # type
-            item.get("category", ""),  # category
-            item.get("subcategory", ""),  # subcategory
-            "", "", "", "", "",  # account, merchant_payee, description, amount, currency
-            "", "",  # essential, reimbursable
-            "",  # notes
-            "", "", "", "", "", "", "",  # enabled ... source_rule_id
-            "", "", "",  # group, default_budget, tax_business_ready
-            "", "", "",  # envelope_group, envelope_style, default_monthly_target
-            str(item.get("monthlyTarget", 0)),  # monthly_target
-            str(item.get("startingBalance", 0)),  # starting_balance
-            str(item.get("rollover", False)).lower(),  # rollover
-            "",  # opening_balance
-            "",  # account_type
-        ])
+        rows.append(_make_row(
+            record_type="monthly_setup",
+            id=item.get("id", ""),
+            month=item.get("month", ""),
+            category=item.get("category", ""),
+            subcategory=item.get("subcategory", ""),
+            monthly_target=str(item.get("monthlyTarget", 0)),
+            starting_balance=str(item.get("startingBalance", 0)),
+            rollover=item.get("rollover", False),
+        ))
 
     # automatic_transactions
     for item in state.get("automaticTransactions", []):
-        rows.append([
-            "automatic_transaction", item.get("id", ""),
-            "", "",  # last_accessed_at, last_automation_run_at
-            "", "",  # date, month
-            item.get("type", "Expense"),  # type
-            item.get("category", ""),  # category
-            item.get("subcategory", ""),  # subcategory
-            item.get("account", ""),  # account
-            item.get("merchantPayee", ""),  # merchant_payee
-            item.get("description", ""),  # description
-            str(item.get("amount", 0)),  # amount
-            item.get("currency", currency),  # currency
-            str(item.get("essential", False)).lower(),  # essential
-            str(item.get("reimbursable", False)).lower(),  # reimbursable
-            item.get("notes", ""),  # notes
-            str(item.get("enabled", True)).lower(),  # enabled
-            item.get("startDate", ""),  # start_date
-            item.get("endDate", ""),  # end_date
-            item.get("frequency", "Monthly"),  # frequency
-            str(item.get("customInterval", 1)),  # custom_interval
-            item.get("customUnit", "Months"),  # custom_unit
-            "",  # source_rule_id
-            "", "", "",  # group, default_budget, tax_business_ready
-            "", "", "", "", "", "", "",  # envelope_group ... account_type
-        ])
+        rows.append(_make_row(
+            record_type="automatic_transaction",
+            id=item.get("id", ""),
+            enabled=item.get("enabled", True),
+            start_date=item.get("startDate", ""),
+            end_date=item.get("endDate", ""),
+            frequency=item.get("frequency", "Monthly"),
+            custom_interval=str(item.get("customInterval", 1)),
+            custom_unit=item.get("customUnit", "Months"),
+            type=item.get("type", "Expense"),
+            category=item.get("category", ""),
+            subcategory=item.get("subcategory", ""),
+            account=item.get("account", ""),
+            merchant_payee=item.get("merchantPayee", ""),
+            description=item.get("description", ""),
+            amount=str(item.get("amount", 0)),
+            currency=item.get("currency", currency),
+            essential=item.get("essential", False),
+            reimbursable=item.get("reimbursable", False),
+            notes=item.get("notes", ""),
+        ))
 
     # transactions
     for item in state.get("transactions", []):
-        rows.append([
-            "transaction", item.get("id", ""),
-            "", "",  # last_accessed_at, last_automation_run_at
-            item.get("date", ""),  # date
-            item.get("month", ""),  # month
-            item.get("type", "Expense"),  # type
-            item.get("category", ""),  # category
-            item.get("subcategory", ""),  # subcategory
-            item.get("account", ""),  # account
-            item.get("merchantPayee", ""),  # merchant_payee
-            item.get("description", ""),  # description
-            str(item.get("amount", 0)),  # amount
-            item.get("currency", currency),  # currency
-            str(item.get("essential", False)).lower(),  # essential
-            str(item.get("reimbursable", False)).lower(),  # reimbursable
-            item.get("notes", ""),  # notes
-            "", "", "", "", "",  # enabled, start_date, end_date, frequency, custom_interval
-            "",  # custom_unit
-            item.get("sourceRuleId", ""),  # source_rule_id
-            "", "", "",  # group, default_budget, tax_business_ready
-            "", "", "", "", "", "", "",  # envelope_group ... account_type
-        ])
+        rows.append(_make_row(
+            record_type="transaction",
+            id=item.get("id", ""),
+            date=item.get("date", ""),
+            month=item.get("month", ""),
+            type=item.get("type", "Expense"),
+            category=item.get("category", ""),
+            subcategory=item.get("subcategory", ""),
+            account=item.get("account", ""),
+            merchant_payee=item.get("merchantPayee", ""),
+            description=item.get("description", ""),
+            amount=str(item.get("amount", 0)),
+            currency=item.get("currency", currency),
+            essential=item.get("essential", False),
+            reimbursable=item.get("reimbursable", False),
+            notes=item.get("notes", ""),
+            source_rule_id=item.get("sourceRuleId", ""),
+        ))
 
     header = ",".join(CSV_COLUMNS)
     body_lines = [",".join(_escape_csv(cell) for cell in row) for row in rows]

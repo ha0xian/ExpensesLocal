@@ -53,6 +53,8 @@ def _handle_errors(fn):
             return result
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        except LookupError as e:
+            raise HTTPException(status_code=404, detail=str(e))
         except FileNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e))
         except Exception as e:

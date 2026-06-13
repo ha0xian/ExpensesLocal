@@ -2,8 +2,51 @@
 
 from __future__ import annotations
 
+import re
 import secrets
 from .calculations import get_transaction_month
+
+
+# Matches a numeric value that may be prefixed with $, contain commas,
+# or have trailing minus/CR/DR markers.
+_AMOUNT_CLEAN = re.compile(r"[^-+\d.]")
+
+
+def _parse_amount(raw: str) -> float:
+    """Robustly parse a bank amount string like '$1,234.56', '-12.34', '(99.99)', '1,234.56 CR' or ''."""
+    text = str(raw or "").strip()
+    if not text:
+        return 0.0
+
+    # Detect parentheses for negative: (123.45) → -123.45
+    is_negative = False
+    if text.startswith("(") and text.endswith(")"):
+        text = text[1:-1]
+        is_negative = True
+
+    # Detect trailing CR/DR markers
+    upper = text.upper()
+    if upper.endswith("CR"):
+        text = text[:-2].strip()
+    elif upper.endswith("DR"):
+        text = text[:-2].strip()
+        is_negative = True
+    # Trailing minus
+    if text.endswith("-"):
+        text = text[:-1].strip()
+        is_negative = True
+
+    # Remove $, commas, spaces etc.
+    cleaned = _AMOUNT_CLEAN.sub("", text)
+    if not cleaned:
+        return 0.0
+
+    try:
+        value = float(cleaned)
+    except (ValueError, TypeError):
+        return 0.0
+
+    return -abs(value) if is_negative else value
 
 
 def guess_mapping(headers: list[str]) -> dict[str, str]:
@@ -66,7 +109,7 @@ def map_bank_import_rows(
 
     result = []
     for row in rows:
-        amount_raw = float(row.get(mapping.get("amount", ""), 0) or 0)
+        amount_raw = _parse_amount(row.get(mapping.get("amount", ""), ""))
         type_value = row.get(mapping.get("type", "")) if mapping.get("type") else ""
         inferred_type = type_value or ("Expense" if amount_raw < 0 else "Income")
         date_val = row.get(mapping.get("date", ""), "")
