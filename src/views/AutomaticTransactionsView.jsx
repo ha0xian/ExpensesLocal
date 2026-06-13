@@ -1,16 +1,21 @@
 import { useState } from "react";
 import { Field, Panel, Table } from "../components/ui.jsx";
-import { RECURRENCE_PRESETS, RECURRENCE_UNITS } from "../lib/automatic-transactions.js";
 import { subcategoriesFor } from "../lib/app-helpers.js";
 
-const transactionTypes = ["Expense", "Income", "Transfer"];
+const TRANSACTION_TYPES = ["Expense", "Income", "Transfer"];
+const FALLBACK_PRESETS = ["Weekly", "Biweekly", "Monthly", "Quarterly", "Yearly", "Custom"];
+const FALLBACK_UNITS = ["Days", "Weeks", "Months", "Years"];
 
 export function AutomaticTransactionsView({
   state,
+  config,
   onAddAutomaticTransaction,
   onUpdateAutomaticTransaction,
   onDeleteAutomaticTransaction
 }) {
+  const recurrencePresets = config?.recurrencePresets || FALLBACK_PRESETS;
+  const recurrenceUnits = config?.recurrenceUnits || FALLBACK_UNITS;
+
   const firstCategory = state.categories[0]?.name || "";
   const [form, setForm] = useState({
     enabled: true,
@@ -43,9 +48,10 @@ export function AutomaticTransactionsView({
     });
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    if (onAddAutomaticTransaction(form)) {
+    const success = await onAddAutomaticTransaction(form);
+    if (success) {
       setForm((previous) => ({
         ...previous,
         startDate: "",
@@ -69,7 +75,7 @@ export function AutomaticTransactionsView({
           <Field label="End Date"><input name="endDate" type="date" value={form.endDate} onChange={(event) => updateForm("endDate", event.target.value)} /></Field>
           <Field label="Frequency">
             <select name="frequency" value={form.frequency} onChange={(event) => updateForm("frequency", event.target.value)}>
-              {RECURRENCE_PRESETS.map((item) => <option key={item} value={item}>{item}</option>)}
+              {recurrencePresets.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </Field>
           {form.frequency === "Custom" ? (
@@ -77,14 +83,14 @@ export function AutomaticTransactionsView({
               <Field label="Every"><input name="customInterval" type="number" min="1" step="1" value={form.customInterval} onChange={(event) => updateForm("customInterval", event.target.value)} /></Field>
               <Field label="Unit">
                 <select name="customUnit" value={form.customUnit} onChange={(event) => updateForm("customUnit", event.target.value)}>
-                  {RECURRENCE_UNITS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  {recurrenceUnits.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </Field>
             </>
           ) : null}
           <Field label="Type">
             <select name="type" value={form.type} onChange={(event) => updateForm("type", event.target.value)}>
-              {transactionTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+              {TRANSACTION_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </Field>
           <Field label="Category">
@@ -113,19 +119,19 @@ export function AutomaticTransactionsView({
       </Panel>
       <Panel title="Automatic Transactions" subtitle="Disable a rule to keep it saved without generating future transactions.">
         <Table headers={["On", "Start", "End", "Frequency", "Custom", "Type", "Category", "Subcategory", "Account", "Merchant", "Amount", ""]}>
-          {state.automaticTransactions.map((item) => (
+          {(state.automaticTransactions || []).map((item) => (
             <tr key={item.id}>
               <td><input type="checkbox" checked={item.enabled} onChange={(event) => onUpdateAutomaticTransaction(item.id, "enabled", event.target.checked)} /></td>
               <td><input type="date" value={item.startDate} onChange={(event) => onUpdateAutomaticTransaction(item.id, "startDate", event.target.value)} /></td>
               <td><input type="date" value={item.endDate || ""} onChange={(event) => onUpdateAutomaticTransaction(item.id, "endDate", event.target.value)} /></td>
-              <td><select value={item.frequency} onChange={(event) => onUpdateAutomaticTransaction(item.id, "frequency", event.target.value)}>{RECURRENCE_PRESETS.map((frequency) => <option key={frequency} value={frequency}>{frequency}</option>)}</select></td>
+              <td><select value={item.frequency} onChange={(event) => onUpdateAutomaticTransaction(item.id, "frequency", event.target.value)}>{recurrencePresets.map((frequency) => <option key={frequency} value={frequency}>{frequency}</option>)}</select></td>
               <td>
                 <div className="inline-fields">
                   <input type="number" min="1" step="1" value={item.customInterval} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customInterval", event.target.value)} />
-                  <select value={item.customUnit} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customUnit", event.target.value)}>{RECURRENCE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select>
+                  <select value={item.customUnit} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customUnit", event.target.value)}>{recurrenceUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select>
                 </div>
               </td>
-              <td><select value={item.type} onChange={(event) => onUpdateAutomaticTransaction(item.id, "type", event.target.value)}>{transactionTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></td>
+              <td><select value={item.type} onChange={(event) => onUpdateAutomaticTransaction(item.id, "type", event.target.value)}>{TRANSACTION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></td>
               <td><select value={item.category} onChange={(event) => onUpdateAutomaticTransaction(item.id, "category", event.target.value)}>{state.categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></td>
               <td><select value={item.subcategory} onChange={(event) => onUpdateAutomaticTransaction(item.id, "subcategory", event.target.value)}>{subcategoriesFor(state, item.category).map((subcategory) => <option key={subcategory.id} value={subcategory.name}>{subcategory.name}</option>)}</select></td>
               <td><select value={item.account} onChange={(event) => onUpdateAutomaticTransaction(item.id, "account", event.target.value)}>{state.accounts.map((account) => <option key={account.id} value={account.name}>{account.name}</option>)}</select></td>

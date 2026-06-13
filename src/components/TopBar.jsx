@@ -1,39 +1,33 @@
 export function TopBar({
   selectedMonth,
   months,
-  fileName,
-  dirty,
-  fileSystemSupported,
+  dataFileName,
   automationStatus,
   onMonthChange,
-  onOpenCsv,
-  onSaveCsv,
-  onSaveAsCsv
+  onImportCsv,
+  onExportCsv
 }) {
   const automationMessage = automationStatus?.changed
-    ? ` Last access metadata updated for ${automationStatus.currentAccessDate}; save to persist it.`
+    ? ` Last access metadata updated for ${automationStatus.currentAccessDate}.`
     : "";
-  const supportMessage = fileSystemSupported
-    ? `CSV open/save is available in this browser.${automationMessage}`
-    : `File System Access API is unavailable. Use Chrome or Edge for CSV open/save.${automationMessage}`;
+  const statusLabel = dataFileName ? `${dataFileName} (server)` : "Server CSV";
 
   return (
     <header className="topbar">
       <div>
         <h1>Envelope Expense CSV</h1>
-        <p className="support-message">{supportMessage}</p>
+        <p className="support-message">Server-backed CSV app.{automationMessage}</p>
       </div>
       <div className="topbar-controls">
         <label className="field compact">
           <span>Month</span>
           <select value={selectedMonth} onChange={(event) => onMonthChange(event.target.value)}>
-            {months.map((month) => <option key={month} value={month}>{month}</option>)}
+            {(months || []).map((month) => <option key={month} value={month}>{month}</option>)}
           </select>
         </label>
-        <span className="file-status">{fileName || "No CSV opened"}{dirty ? " · unsaved" : ""}</span>
-        <button type="button" onClick={onOpenCsv}>Open CSV</button>
-        <button type="button" onClick={onSaveCsv}>Save</button>
-        <button type="button" className="primary" onClick={onSaveAsCsv}>Save As</button>
+        <span className="file-status">{statusLabel}</span>
+        <button type="button" onClick={onImportCsv}>Import CSV</button>
+        <button type="button" className="primary" onClick={onExportCsv}>Export CSV</button>
       </div>
     </header>
   );
