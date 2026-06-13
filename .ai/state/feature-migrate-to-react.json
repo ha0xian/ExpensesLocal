@@ -1,0 +1,7 @@
+{
+  "feature": "feature-migrate-to-react",
+  "plan": ".ai/plans/feature-migrate-to-react.md",
+  "status": "ready_for_review",
+  "open_questions": [],
+  "blocked_reason": null
+}
