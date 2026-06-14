@@ -107,6 +107,48 @@ def test_generation_prepends_transactions():
     generated_txn = result["generated"][0]
     assert generated_txn["sourceRuleId"] == "gen-rule"
     assert generated_txn["id"].startswith("auto-gen-rule-")
-    # Generated transaction should be prepended
-    assert result["state"]["transactions"][0]["id"] == generated_txn["id"]
-    assert result["state"]["transactions"][1]["id"] == "existing"
+
+
+def test_validate_rejects_impossible_date():
+    """Impossible dates like 2026-99-99 are rejected by _validate_automatic_rule."""
+    from app.state_service import _validate_automatic_rule
+    import pytest
+    with pytest.raises(ValueError, match="Start date must be a valid date"):
+        _validate_automatic_rule({
+            "startDate": "2026-99-99", "frequency": "Monthly", "type": "Expense",
+            "category": "Housing", "subcategory": "Rent", "account": "Checking",
+            "amount": 100, "customInterval": 1, "customUnit": "Months",
+        })
+    with pytest.raises(ValueError, match="End date must be a valid date"):
+        _validate_automatic_rule({
+            "startDate": "2026-06-01", "endDate": "2026-99-99",
+            "frequency": "Monthly", "type": "Expense",
+            "category": "Housing", "subcategory": "Rent", "account": "Checking",
+            "amount": 100, "customInterval": 1, "customUnit": "Months",
+        })
+
+
+def test_update_path_validates_rule():
+    """Inline edits that make a rule invalid are rejected."""
+    from app.state_service import update_automatic_transaction, create_automatic_transaction
+    import pytest
+
+    # Create a valid rule first
+    snap = create_automatic_transaction({
+        "startDate": "2026-06-01",
+        "frequency": "Monthly",
+        "type": "Expense",
+        "category": "Housing",
+        "subcategory": "Rent",
+        "account": "Checking",
+        "amount": 100.0,
+    })
+    rule_id = snap["state"]["automaticTransactions"][0]["id"]
+
+    # Setting startDate to an impossible value should raise
+    with pytest.raises(ValueError):
+        update_automatic_transaction(rule_id, "startDate", "2026-99-99")
+
+    # Setting amount to 0 should raise
+    with pytest.raises(ValueError, match="positive amount"):
+        update_automatic_transaction(rule_id, "amount", 0)

@@ -1,8 +1,18 @@
-"""HTTP API endpoints — thin handlers that delegate to state_service."""
+"""HTTP API endpoints — thin handlers that delegate to state_service.
+
+Every route is wrapped with _handle_errors so:
+- ValueError          → HTTP 400
+- LookupError         → HTTP 404
+- FileNotFoundError   → HTTP 404
+- HTTPException       → re-raised as-is
+- unhandled Exception → HTTP 500
+"""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from functools import wraps
+
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from .state_service import (
@@ -34,23 +44,19 @@ from .state_service import (
 router = APIRouter(prefix="/api")
 
 
-def _ok(data: dict) -> dict:
-    return data
-
-
 def _handle_errors(fn):
-    """Decorator/wrapper to catch ValueError as 400 and others as 500."""
-    from functools import wraps
+    """Decorator that translates service-layer exceptions to HTTP responses."""
 
     @wraps(fn)
     async def wrapper(*args, **kwargs):
         try:
             result = fn(*args, **kwargs)
-            # support both sync and async
             import inspect
             if inspect.iscoroutine(result):
                 result = await result
             return result
+        except HTTPException:
+            raise
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except LookupError as e:
@@ -59,6 +65,7 @@ def _handle_errors(fn):
             raise HTTPException(status_code=404, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
     return wrapper
 
 
@@ -67,28 +74,30 @@ def _handle_errors(fn):
 # ---------------------------------------------------------------------------
 
 @router.get("/health")
+@_handle_errors
 def health():
     return {"status": "ok", "app": "Envelope Expense CSV"}
 
 
 @router.get("/config")
+@_handle_errors
 def get_config():
-    snap = get_snapshot(run_automation=False)
-    return _ok(snap)
+    return get_snapshot(run_automation=False)
 
 
 @router.get("/state")
+@_handle_errors
 def get_state():
-    snap = get_snapshot(run_automation=True)
-    return _ok(snap)
+    return get_snapshot(run_automation=True)
 
 
 @router.put("/state/month")
+@_handle_errors
 async def put_state_month(payload: dict):
     month = payload.get("month", "")
     if not month:
         raise HTTPException(status_code=400, detail="Month is required.")
-    return _ok(update_selected_month(month))
+    return update_selected_month(month)
 
 
 # ---------------------------------------------------------------------------
@@ -96,17 +105,16 @@ async def put_state_month(payload: dict):
 # ---------------------------------------------------------------------------
 
 @router.post("/csv/import")
+@_handle_errors
 async def csv_import(payload: dict):
     csv_text = payload.get("csvText", "")
     if not csv_text:
         raise HTTPException(status_code=400, detail="csvText is required.")
-    try:
-        return _ok(replace_state_from_csv(csv_text))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return replace_state_from_csv(csv_text)
 
 
 @router.get("/csv/export")
+@_handle_errors
 def csv_export():
     csv_text = export_csv()
     return Response(
@@ -121,25 +129,25 @@ def csv_export():
 # ---------------------------------------------------------------------------
 
 @router.post("/transactions")
+@_handle_errors
 async def post_transaction(payload: dict):
-    try:
-        return _ok(create_transaction(payload))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return create_transaction(payload)
 
 
 @router.patch("/transactions/{transaction_id}")
+@_handle_errors
 async def patch_transaction(transaction_id: str, payload: dict):
     field = payload.get("field", "")
     value = payload.get("value")
     if not field:
         raise HTTPException(status_code=400, detail="Field is required.")
-    return _ok(update_transaction(transaction_id, field, value))
+    return update_transaction(transaction_id, field, value)
 
 
 @router.delete("/transactions/{transaction_id}")
+@_handle_errors
 def delete_transaction_route(transaction_id: str):
-    return _ok(delete_transaction(transaction_id))
+    return delete_transaction(transaction_id)
 
 
 # ---------------------------------------------------------------------------
@@ -147,25 +155,25 @@ def delete_transaction_route(transaction_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/automatic-transactions")
+@_handle_errors
 async def post_automatic_transaction(payload: dict):
-    try:
-        return _ok(create_automatic_transaction(payload))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return create_automatic_transaction(payload)
 
 
 @router.patch("/automatic-transactions/{rule_id}")
+@_handle_errors
 async def patch_automatic_transaction(rule_id: str, payload: dict):
     field = payload.get("field", "")
     value = payload.get("value")
     if not field:
         raise HTTPException(status_code=400, detail="Field is required.")
-    return _ok(update_automatic_transaction(rule_id, field, value))
+    return update_automatic_transaction(rule_id, field, value)
 
 
 @router.delete("/automatic-transactions/{rule_id}")
+@_handle_errors
 def delete_automatic_transaction_route(rule_id: str):
-    return _ok(delete_automatic_transaction(rule_id))
+    return delete_automatic_transaction(rule_id)
 
 
 # ---------------------------------------------------------------------------
@@ -173,25 +181,25 @@ def delete_automatic_transaction_route(rule_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/categories")
+@_handle_errors
 async def post_category(payload: dict):
-    try:
-        return _ok(create_category(payload))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return create_category(payload)
 
 
 @router.patch("/categories/{category_id}")
+@_handle_errors
 async def patch_category(category_id: str, payload: dict):
     field = payload.get("field", "")
     value = payload.get("value")
     if not field:
         raise HTTPException(status_code=400, detail="Field is required.")
-    return _ok(update_category(category_id, field, value))
+    return update_category(category_id, field, value)
 
 
 @router.delete("/categories/{category_id}")
+@_handle_errors
 def delete_category_route(category_id: str):
-    return _ok(delete_category(category_id))
+    return delete_category(category_id)
 
 
 # ---------------------------------------------------------------------------
@@ -199,25 +207,25 @@ def delete_category_route(category_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/subcategories")
+@_handle_errors
 async def post_subcategory(payload: dict):
-    try:
-        return _ok(create_subcategory(payload))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return create_subcategory(payload)
 
 
 @router.patch("/subcategories/{subcategory_id}")
+@_handle_errors
 async def patch_subcategory(subcategory_id: str, payload: dict):
     field = payload.get("field", "")
     value = payload.get("value")
     if not field:
         raise HTTPException(status_code=400, detail="Field is required.")
-    return _ok(update_subcategory(subcategory_id, field, value))
+    return update_subcategory(subcategory_id, field, value)
 
 
 @router.delete("/subcategories/{subcategory_id}")
+@_handle_errors
 def delete_subcategory_route(subcategory_id: str):
-    return _ok(delete_subcategory(subcategory_id))
+    return delete_subcategory(subcategory_id)
 
 
 # ---------------------------------------------------------------------------
@@ -225,25 +233,25 @@ def delete_subcategory_route(subcategory_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/accounts")
+@_handle_errors
 async def post_account(payload: dict):
-    try:
-        return _ok(create_account(payload))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return create_account(payload)
 
 
 @router.patch("/accounts/{account_id}")
+@_handle_errors
 async def patch_account(account_id: str, payload: dict):
     field = payload.get("field", "")
     value = payload.get("value")
     if not field:
         raise HTTPException(status_code=400, detail="Field is required.")
-    return _ok(update_account(account_id, field, value))
+    return update_account(account_id, field, value)
 
 
 @router.delete("/accounts/{account_id}")
+@_handle_errors
 def delete_account_route(account_id: str):
-    return _ok(delete_account(account_id))
+    return delete_account(account_id)
 
 
 # ---------------------------------------------------------------------------
@@ -251,17 +259,19 @@ def delete_account_route(account_id: str):
 # ---------------------------------------------------------------------------
 
 @router.patch("/monthly-setup/{setup_id}")
+@_handle_errors
 async def patch_monthly_setup(setup_id: str, payload: dict):
     field = payload.get("field", "")
     value = payload.get("value")
     if not field:
         raise HTTPException(status_code=400, detail="Field is required.")
-    return _ok(update_monthly_setup(setup_id, field, value))
+    return update_monthly_setup(setup_id, field, value)
 
 
 @router.post("/monthly-setup/fill-missing")
+@_handle_errors
 def fill_missing():
-    return _ok(fill_missing_monthly_setup())
+    return fill_missing_monthly_setup()
 
 
 # ---------------------------------------------------------------------------
@@ -269,18 +279,20 @@ def fill_missing():
 # ---------------------------------------------------------------------------
 
 @router.post("/bank-import/preview")
+@_handle_errors
 async def bank_import_preview_route(payload: dict):
     csv_text = payload.get("csvText", "")
     if not csv_text:
         raise HTTPException(status_code=400, detail="csvText is required.")
     mapping = payload.get("mapping", None)
-    return _ok(bank_import_preview(csv_text, mapping))
+    return bank_import_preview(csv_text, mapping)
 
 
 @router.post("/bank-import/apply")
+@_handle_errors
 async def bank_import_apply_route(payload: dict):
     rows = payload.get("rows", [])
     mapping = payload.get("mapping", {})
     if not rows or not mapping:
         raise HTTPException(status_code=400, detail="rows and mapping are required.")
-    return _ok(bank_import_apply(rows, mapping))
+    return bank_import_apply(rows, mapping)

@@ -119,3 +119,51 @@ def test_update_month():
     assert response.status_code == 200
     data = response.json()
     assert data["state"]["selectedMonth"] == "2026-03"
+
+
+def test_delete_nonexistent_transaction_returns_404():
+    response = client.delete("/api/transactions/nonexistent-id")
+    assert response.status_code == 404
+
+
+def test_patch_nonexistent_entity_returns_404():
+    response = client.patch("/api/categories/nonexistent-id",
+                            json={"field": "name", "value": "Test"})
+    assert response.status_code == 404
+
+
+def test_automatic_transaction_rejects_impossible_date():
+    payload = {
+        "startDate": "2026-99-99",
+        "frequency": "Monthly",
+        "type": "Expense",
+        "category": "Housing",
+        "subcategory": "Rent",
+        "account": "Checking",
+        "amount": 100.0,
+    }
+    response = client.post("/api/automatic-transactions", json=payload)
+    assert response.status_code == 400
+
+
+def test_automatic_transaction_update_validates_rule():
+    # First create a valid automatic transaction to get a real ID
+    create_payload = {
+        "startDate": "2026-06-01",
+        "frequency": "Monthly",
+        "type": "Expense",
+        "category": "Housing",
+        "subcategory": "Rent",
+        "account": "Checking",
+        "amount": 100.0,
+    }
+    create_resp = client.post("/api/automatic-transactions", json=create_payload)
+    assert create_resp.status_code == 200
+    rule_id = create_resp.json()["state"]["automaticTransactions"][0]["id"]
+
+    # Editing startDate to an impossible date should be rejected
+    patch_resp = client.patch(
+        f"/api/automatic-transactions/{rule_id}",
+        json={"field": "startDate", "value": "2026-99-99"},
+    )
+    assert patch_resp.status_code == 400

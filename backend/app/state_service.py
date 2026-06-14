@@ -144,6 +144,16 @@ def _load_and_automate(run_automation: bool = True) -> tuple[dict, dict]:
 # Validation helpers
 # ---------------------------------------------------------------------------
 
+def _parse_date_strict(value: str) -> date | None:
+    """Parse YYYY-MM-DD strictly, returning None for impossible dates like 2026-99-99."""
+    if not _DATE_RE.match(value):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 def _validate_automatic_rule(rule: dict) -> None:
     """Raise ValueError if the rule fails the same checks as the old JS app."""
     if not rule.get("startDate"):
@@ -161,13 +171,17 @@ def _validate_automatic_rule(rule: dict) -> None:
     if not rule.get("amount") or float(rule.get("amount", 0) or 0) <= 0:
         raise ValueError("A positive amount is required.")
 
-    if not _DATE_RE.match(rule.get("startDate", "")):
-        raise ValueError("Start date must be a valid date.")
+    start = _parse_date_strict(rule.get("startDate", ""))
+    if not start:
+        raise ValueError("Start date must be a valid date (YYYY-MM-DD).")
+
     end_date = rule.get("endDate", "")
-    if end_date and not _DATE_RE.match(end_date):
-        raise ValueError("End date must be a valid date.")
-    if end_date and end_date < rule["startDate"]:
-        raise ValueError("End date cannot be earlier than start date.")
+    if end_date:
+        end = _parse_date_strict(end_date)
+        if not end:
+            raise ValueError("End date must be a valid date (YYYY-MM-DD).")
+        if end < start:
+            raise ValueError("End date cannot be earlier than start date.")
 
     if rule.get("frequency") == "Custom":
         ci = rule.get("customInterval", 1)
@@ -361,6 +375,10 @@ def update_automatic_transaction(rule_id: str, field: str, value) -> dict:
         if field == "customInterval":
             r["customInterval"] = max(1, int(r["customInterval"] or 1))
         rules.append(r)
+    # Validate the updated rule so inline edits cannot make it invalid
+    updated = next((r for r in rules if r["id"] == rule_id), None)
+    if updated:
+        _validate_automatic_rule(updated)
     state["automaticTransactions"] = rules
     state = _normalize_state(state)
     save_state(state)
