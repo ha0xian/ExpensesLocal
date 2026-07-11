@@ -2,6 +2,7 @@
 
 import sys
 import tempfile
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,10 +19,13 @@ _TEMP_CSV_PATH = Path(_TEMP_DATA_DIR.name) / "expense-data.csv"
 # etc. pick up the temp path.
 _patcher = patch("app.config.APP_CSV_PATH", _TEMP_CSV_PATH)
 _patcher.start()
+_env_patcher = patch.dict(os.environ, {"DATABASE_URL": ""})
+_env_patcher.start()
 
 
 def pytest_unconfigure():
     """Clean up temp directory after the test session."""
+    _env_patcher.stop()
     _patcher.stop()
     _TEMP_DATA_DIR.cleanup()
 

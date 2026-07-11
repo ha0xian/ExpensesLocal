@@ -3,9 +3,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .config import APP_NAME
 from .routes import router
 
-app = FastAPI(title="Envelope Expense CSV", version="1.0.0")
+app = FastAPI(title=APP_NAME, version="1.0.0")
 
 # Permissive local-development CORS
 app.add_middleware(

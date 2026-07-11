@@ -1,5 +1,5 @@
 {
-  "name": "expense-csv-react",
+  "name": "expense-postgres-react",
   "private": true,
   "version": "1.0.0",
   "type": "module",

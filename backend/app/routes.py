@@ -15,6 +15,7 @@ from functools import wraps
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
+from .config import APP_NAME
 from .state_service import (
     bank_import_apply,
     bank_import_preview,
@@ -76,7 +77,7 @@ def _handle_errors(fn):
 @router.get("/health")
 @_handle_errors
 def health():
-    return {"status": "ok", "app": "Envelope Expense CSV"}
+    return {"status": "ok", "app": APP_NAME}
 
 
 @router.get("/config")

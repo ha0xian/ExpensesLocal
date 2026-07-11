@@ -1,13 +1,14 @@
-# Envelope Expense CSV
+# Envelope Expense Tracker
 
-A React + Vite frontend powered by a Python FastAPI backend. The backend owns the normalized CSV expense data, business logic, validation, calculations, startup automation, and persistence. The frontend is an API client focused on presentation and user interaction.
+A React + Vite frontend powered by a Python FastAPI backend. The backend owns expense data, business logic, validation, calculations, startup automation, and persistence. The frontend is an API client focused on presentation and user interaction.
 
 ## Architecture
 
 ```
-backend/data/expense-data.csv   ← server-owned app state (auto-created on first run)
-backend/app/                    ← FastAPI package (models, routes, services, CSV storage, calculations, automation)
-src/                            ← React 19 + Vite frontend (API client)
+DATABASE_URL                    <- PostgreSQL app state when set, compatible with Supabase
+backend/data/expense-data.csv   <- local CSV fallback when DATABASE_URL is not set
+backend/app/                    <- FastAPI package (models, routes, services, storage, calculations, automation)
+src/                            <- React 19 + Vite frontend (API client)
 ```
 
 All business logic runs server-side. The frontend calls `/api` endpoints (proxied by Vite in dev) and receives state + derived summaries in every response.
@@ -30,6 +31,19 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 The backend serves on http://127.0.0.1:8000. Health check: http://127.0.0.1:8000/api/health
+
+### Supabase / PostgreSQL
+
+Set `DATABASE_URL` before starting the backend to store app state in PostgreSQL instead of `backend/data/expense-data.csv`:
+
+```bash
+cd backend
+$env:DATABASE_URL="postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require"  # Windows PowerShell
+# export DATABASE_URL="postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require"  # macOS / Linux
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+On first startup with `DATABASE_URL`, the backend creates an `app_state` table and stores the complete app state as a single `jsonb` document. If a local CSV already exists, it is used to seed the database once; otherwise the default starter state is created.
 
 ### Frontend
 
@@ -56,19 +70,20 @@ npm run dev:frontend   # Vite only
 npm run dev:backend    # Start FastAPI with auto-reload
 ```
 
-## CSV Workflow
+## Storage And CSV Workflow
 
-- The backend stores app state in `backend/data/expense-data.csv` (created automatically on first request).
+- With `DATABASE_URL` set, the backend stores app state in PostgreSQL.
+- Without `DATABASE_URL`, the backend stores app state in `backend/data/expense-data.csv` (created automatically on first request).
 - Use **Import CSV** to replace server state from a local CSV file.
 - Use **Export CSV** to download the current server state.
-- Changes from any CRUD operation are saved to the server CSV automatically.
+- Changes from any CRUD operation are saved to the selected backend automatically.
 - Automatic transaction rules generate due rows when state is loaded (startup automation).
 
-The CSV uses a `record_type` column so transactions, accounts, categories, subcategories, monthly setup, automatic transactions, and app metadata can live in one file.
+The import/export CSV uses a `record_type` column so transactions, accounts, categories, subcategories, monthly setup, automatic transactions, and app metadata can live in one file.
 
 ## Startup Automation
 
-On each state load, the backend updates `lastAccessedAt`/`lastAutomationRunAt` metadata, advances the selected month when the calendar month changes, and generates due automatic transactions. This is tracked in the server CSV automatically.
+On each state load, the backend updates `lastAccessedAt`/`lastAutomationRunAt` metadata, advances the selected month when the calendar month changes, and generates due automatic transactions. This is tracked in the selected backend automatically.
 
 ## Backend Tests
 

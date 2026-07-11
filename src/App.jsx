@@ -256,7 +256,7 @@ export default function App() {
   if (loading && !state) {
     return (
       <AppShell
-        topBar={<header className="topbar"><h1>Envelope Expense CSV</h1></header>}
+        topBar={<header className="topbar"><h1>Envelope Expense Tracker</h1></header>}
         tabs={null}
       >
         <p className="notice">Loading app state from backend&hellip;</p>
@@ -267,7 +267,7 @@ export default function App() {
   if (error && !state) {
     return (
       <AppShell
-        topBar={<header className="topbar"><h1>Envelope Expense CSV</h1></header>}
+        topBar={<header className="topbar"><h1>Envelope Expense Tracker</h1></header>}
         tabs={null}
       >
         <p className="notice error">

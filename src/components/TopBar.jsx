@@ -10,13 +10,13 @@ export function TopBar({
   const automationMessage = automationStatus?.changed
     ? ` Last access metadata updated for ${automationStatus.currentAccessDate}.`
     : "";
-  const statusLabel = dataFileName ? `${dataFileName} (server)` : "Server CSV";
+  const statusLabel = dataFileName ? `${dataFileName} (server)` : "Server storage";
 
   return (
     <header className="topbar">
       <div>
-        <h1>Envelope Expense CSV</h1>
-        <p className="support-message">Server-backed CSV app.{automationMessage}</p>
+        <h1>Envelope Expense Tracker</h1>
+        <p className="support-message">Server-backed expense app.{automationMessage}</p>
       </div>
       <div className="topbar-controls">
         <label className="field compact">

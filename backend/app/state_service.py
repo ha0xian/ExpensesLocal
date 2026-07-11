@@ -1,6 +1,6 @@
 """Centralize load-modify-save operations so routes stay thin.
 
-Every successful mutation saves the CSV and returns a fresh AppSnapshot dict.
+Every successful mutation saves the selected backend and returns a fresh AppSnapshot dict.
 Validation failures raise ValueError (→ 400). Missing entities raise LookupError (→ 404).
 """
 
@@ -13,17 +13,14 @@ from pathlib import Path
 
 from .automatic_transactions import RECURRENCE_PRESETS, RECURRENCE_UNITS
 from .calculations import build_derived_state, get_transaction_month
-from .config import APP_CSV_PATH
 from .csv_storage import (
-    ensure_data_file,
-    load_state,
     parse_app_csv,
     parse_generic_csv,
-    save_state,
     serialize_app_csv,
 )
 from .schema_defaults import MONTHS_2026, create_initial_state
 from .startup_automation import run_startup_automation
+from .storage import ensure_state, save_state, storage_backend_label
 
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -116,13 +113,13 @@ def _build_snapshot(state: dict, auto_status: dict | None = None) -> dict:
             "recurrencePresets": RECURRENCE_PRESETS,
             "recurrenceUnits": RECURRENCE_UNITS,
         },
-        "dataFileName": APP_CSV_PATH.name,
+        "dataFileName": storage_backend_label(),
     }
 
 
 def _load_and_automate(run_automation: bool = True) -> tuple[dict, dict]:
     """Load state from disk (init if needed) and optionally run startup automation."""
-    state = ensure_data_file()
+    state = ensure_state()
     state = _normalize_state(state)
     auto_status = {
         "state": None,
@@ -216,7 +213,7 @@ def replace_state_from_csv(csv_text: str) -> dict:
 
 
 def export_csv() -> str:
-    state = ensure_data_file()
+    state = ensure_state()
     return serialize_app_csv(_normalize_state(state))
 
 
@@ -551,7 +548,7 @@ def bank_import_preview(csv_text: str, mapping: dict[str, str] | None = None) ->
     headers, rows = parse_generic_csv(csv_text)
     if mapping is None:
         mapping = guess_mapping(headers)
-    state = ensure_data_file()
+    state = ensure_state()
     preview_rows = map_bank_import_rows(rows[:8], mapping, _normalize_state(state))
     return {
         "headers": headers,
