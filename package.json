@@ -1,10 +1,12 @@
 {
-  "name": "expense-csv-react",
+  "name": "expense-postgres-react",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "vite",
+    "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
     "build": "vite build",
     "preview": "vite preview"
   },
