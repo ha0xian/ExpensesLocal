@@ -17,6 +17,7 @@ Thumbs.db
 # Backend artifacts
 backend/.venv/
 backend/__pycache__/
+backend/**/__pycache__/
 backend/.pytest_cache/
 backend/data/*.csv
 !backend/data/.gitkeep

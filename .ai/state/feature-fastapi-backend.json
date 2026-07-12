@@ -1,0 +1,9 @@
+{
+  "feature": "feature-fastapi-backend",
+  "plan": ".ai/plans/feature-fastapi-backend.md",
+  "status": "ready_for_review",
+  "pr_url": "https://github.com/ha0xian/ExpensesLocal/pull/1",
+  "pr_number": 1,
+  "open_questions": [],
+  "blocked_reason": null
+}

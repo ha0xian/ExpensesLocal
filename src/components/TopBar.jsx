@@ -1,4 +1,8 @@
+import { CalendarDays, Database, Download, Upload } from "lucide-react";
+import { Button } from "./ui/button.jsx";
+
 export function TopBar({
+  title = "Dashboard",
   selectedMonth,
   months,
   dataFileName,
@@ -15,19 +19,22 @@ export function TopBar({
   return (
     <header className="topbar">
       <div>
-        <h1>Envelope Expense Tracker</h1>
+        <h1>{title}</h1>
         <p className="support-message">Server-backed expense app.{automationMessage}</p>
       </div>
       <div className="topbar-controls">
         <label className="field compact">
           <span>Month</span>
-          <select value={selectedMonth} onChange={(event) => onMonthChange(event.target.value)}>
+          <span className="select-shell">
+            <CalendarDays data-icon="inline-start" />
+            <select value={selectedMonth} onChange={(event) => onMonthChange(event.target.value)}>
             {(months || []).map((month) => <option key={month} value={month}>{month}</option>)}
-          </select>
+            </select>
+          </span>
         </label>
-        <span className="file-status">{statusLabel}</span>
-        <button type="button" onClick={onImportCsv}>Import CSV</button>
-        <button type="button" className="primary" onClick={onExportCsv}>Export CSV</button>
+        <span className="file-status"><Database data-icon="inline-start" />{statusLabel}</span>
+        <Button variant="outline" onClick={onImportCsv}><Upload data-icon="inline-start" />Import CSV</Button>
+        <Button onClick={onExportCsv}><Download data-icon="inline-start" />Export CSV</Button>
       </div>
     </header>
   );

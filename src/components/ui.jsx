@@ -1,26 +1,46 @@
-export function Kpi({ label, value, tone = "" }) {
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card.jsx";
+import { Badge } from "./ui/badge.jsx";
+
+export function Kpi({ label, value, detail, tone = "", icon: Icon }) {
   return (
-    <article className={`kpi ${tone}`.trim()}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
+    <Card className={`kpi ${tone}`.trim()}>
+      <CardContent className="kpi-content">
+        {Icon ? (
+          <span className="kpi-icon" aria-hidden="true">
+            <Icon data-icon="inline-start" />
+          </span>
+        ) : null}
+        <div>
+          <span>{label}</span>
+          <strong>{value}</strong>
+          {detail ? <small>{detail}</small> : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 export function Panel({ title, subtitle, action, children }) {
   return (
-    <section className="panel">
+    <Card className="panel">
       {(title || subtitle || action) ? (
-        <div className="panel-header">
+        <CardHeader className="panel-header">
           <div>
-            {title ? <h2>{title}</h2> : null}
-            {subtitle ? <p>{subtitle}</p> : null}
+            {title ? <CardTitle>{title}</CardTitle> : null}
+            {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}
           </div>
-          {action}
-        </div>
+          {action ? <CardAction>{action}</CardAction> : null}
+        </CardHeader>
       ) : null}
-      {children}
-    </section>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
@@ -53,7 +73,14 @@ export function Field({ label, className = "", children }) {
 }
 
 export function StatusPill({ tone = "info", children }) {
-  return <span className={`status-pill ${tone}`}>{children}</span>;
+  const variant = tone === "error" || tone === "bad"
+    ? "destructive"
+    : tone === "warning"
+      ? "warning"
+      : tone === "good" || tone === "success"
+        ? "success"
+        : "secondary";
+  return <Badge className={`status-pill ${tone}`} variant={variant}>{children}</Badge>;
 }
 
 export function EmptyState({ title, message }) {

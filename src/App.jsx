@@ -13,6 +13,17 @@ import { MonthlySetupView } from "./views/MonthlySetupView.jsx";
 import { TransactionsView } from "./views/TransactionsView.jsx";
 import { WarningsView } from "./views/WarningsView.jsx";
 
+const VIEW_TITLES = {
+  dashboard: "Dashboard",
+  transactions: "Transactions",
+  automatic: "Automatic",
+  monthly: "Monthly Setup",
+  categories: "Categories",
+  accounts: "Accounts",
+  import: "Bank Import",
+  warnings: "Warnings",
+};
+
 export default function App() {
   const {
     state, derived, config, automationStatus,
@@ -271,7 +282,7 @@ export default function App() {
         tabs={null}
       >
         <p className="notice error">
-          Could not connect to the backend. Make sure FastAPI is running on port 8000 and the Vite proxy is configured.
+          Could not connect to the backend. Make sure FastAPI is running and the Vite proxy is configured.
         </p>
         <button type="button" onClick={refresh}>Retry</button>
       </AppShell>
@@ -286,6 +297,7 @@ export default function App() {
 
   const topBar = (
     <TopBar
+      title={VIEW_TITLES[currentView] || "Dashboard"}
       selectedMonth={selectedMonth}
       months={months}
       dataFileName={dataFileName}
@@ -312,6 +324,7 @@ export default function App() {
           categoryRows={categoryRows}
           envelopeRows={envelopeRows}
           warningCount={warnings.length}
+          warnings={warnings}
         />
       ) : null}
 
