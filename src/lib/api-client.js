@@ -1,8 +1,18 @@
 /** Frontend API wrapper — uses fetch against the /api proxy. */
 
+let accessToken = null;
+
+export function setAccessToken(token) {
+  accessToken = token || null;
+}
+
+function authHeaders() {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+}
+
 async function request(path, options = {}) {
   const response = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: { "Content-Type": "application/json", ...authHeaders(), ...options.headers },
     ...options,
   });
   if (!response.ok) {
@@ -49,7 +59,7 @@ export async function importCsv(csvText) {
 }
 
 export async function exportCsv() {
-  const response = await fetch("/api/csv/export");
+  const response = await fetch("/api/csv/export", { headers: authHeaders() });
   if (!response.ok) throw new Error("Export failed");
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);

@@ -11,6 +11,7 @@ from .csv_storage import (
 )
 from .postgres_storage import load_state_from_database, save_state_to_database
 from .schema_defaults import create_initial_state
+from .auth import current_user_id
 
 
 def database_url() -> str:
@@ -29,14 +30,17 @@ def ensure_state() -> dict:
     """Return persisted state, initializing the selected backend if needed."""
     url = database_url()
     if not url:
+        if current_user_id() != "local-development":
+            raise RuntimeError("DATABASE_URL is required when authentication is enabled.")
         return ensure_data_file()
 
-    state = load_state_from_database(url)
+    user_id = current_user_id()
+    state = load_state_from_database(url, user_id)
     if state is not None:
         return state
 
     state = _initial_database_state()
-    save_state_to_database(state, url)
+    save_state_to_database(state, url, user_id)
     return state
 
 
@@ -44,8 +48,10 @@ def save_state(state: dict) -> None:
     """Persist app state to the selected backend."""
     url = database_url()
     if url:
-        save_state_to_database(state, url)
+        save_state_to_database(state, url, current_user_id())
         return
+    if current_user_id() != "local-development":
+        raise RuntimeError("DATABASE_URL is required when authentication is enabled.")
     save_state_to_csv(state)
 
 

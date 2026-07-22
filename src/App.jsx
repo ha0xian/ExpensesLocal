@@ -24,7 +24,7 @@ const VIEW_TITLES = {
   warnings: "Warnings",
 };
 
-export default function App() {
+export default function App({ session, onSignOut }) {
   const {
     state, derived, config, automationStatus,
     dataFileName, loading, error, refresh, mutate
@@ -305,6 +305,8 @@ export default function App() {
       onMonthChange={handleMonthChange}
       onImportCsv={handleImportCsv}
       onExportCsv={handleExportCsv}
+      userEmail={session?.user?.email}
+      onSignOut={onSignOut}
     />
   );
 

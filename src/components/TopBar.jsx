@@ -1,4 +1,4 @@
-import { CalendarDays, Database, Download, Upload } from "lucide-react";
+import { CalendarDays, Database, Download, LogOut, Upload } from "lucide-react";
 import { Button } from "./ui/button.jsx";
 
 export function TopBar({
@@ -9,7 +9,9 @@ export function TopBar({
   automationStatus,
   onMonthChange,
   onImportCsv,
-  onExportCsv
+  onExportCsv,
+  userEmail,
+  onSignOut
 }) {
   const automationMessage = automationStatus?.changed
     ? ` Last access metadata updated for ${automationStatus.currentAccessDate}.`
@@ -35,6 +37,8 @@ export function TopBar({
         <span className="file-status"><Database data-icon="inline-start" />{statusLabel}</span>
         <Button variant="outline" onClick={onImportCsv}><Upload data-icon="inline-start" />Import CSV</Button>
         <Button onClick={onExportCsv}><Download data-icon="inline-start" />Export CSV</Button>
+        <span className="account-email">{userEmail}</span>
+        {onSignOut && <Button variant="outline" onClick={onSignOut}><LogOut data-icon="inline-start" />Sign out</Button>}
       </div>
     </header>
   );

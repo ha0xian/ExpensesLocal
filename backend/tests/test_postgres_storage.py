@@ -61,17 +61,17 @@ def test_save_state_to_database_upserts_jsonb(monkeypatch):
     calls = install_fake_psycopg(monkeypatch, cursor)
     state = create_initial_state()
 
-    save_state_to_database(state, "postgresql://example")
+    save_state_to_database(state, "postgresql://example", "user-123")
 
     assert calls == [{
         "url": "postgresql://example",
         "autocommit": True,
         "prepare_threshold": None,
     }]
-    assert any("CREATE TABLE IF NOT EXISTS app_state" in sql for sql, _ in cursor.executed)
+    assert any("CREATE TABLE IF NOT EXISTS user_app_state" in sql for sql, _ in cursor.executed)
     upsert_sql, upsert_params = cursor.executed[-1]
-    assert "INSERT INTO app_state" in upsert_sql
-    assert upsert_params[0] == "default"
+    assert "INSERT INTO user_app_state" in upsert_sql
+    assert upsert_params[0] == "user-123"
     assert json.loads(upsert_params[1])["selectedMonth"] == state["selectedMonth"]
 
 
@@ -83,10 +83,11 @@ def test_load_state_from_database_returns_existing_jsonb(monkeypatch):
     cursor = FakeCursor(rows=[(state,)])
     install_fake_psycopg(monkeypatch, cursor)
 
-    loaded = load_state_from_database("postgresql://example")
+    loaded = load_state_from_database("postgresql://example", "user-123")
 
     assert loaded["selectedMonth"] == "2026-09"
-    assert any("SELECT state FROM app_state" in sql for sql, _ in cursor.executed)
+    assert any("SELECT state FROM user_app_state" in sql for sql, _ in cursor.executed)
+    assert cursor.executed[-1][1] == ("user-123",)
 
 
 def test_storage_facade_uses_database_url(monkeypatch):
@@ -94,11 +95,12 @@ def test_storage_facade_uses_database_url(monkeypatch):
 
     saved = []
     monkeypatch.setenv("DATABASE_URL", "postgresql://example")
-    monkeypatch.setattr(storage, "load_state_from_database", lambda url: {"selectedMonth": "2026-10"})
-    monkeypatch.setattr(storage, "save_state_to_database", lambda state, url: saved.append((state, url)))
+    monkeypatch.setattr(storage, "current_user_id", lambda: "user-123")
+    monkeypatch.setattr(storage, "load_state_from_database", lambda url, user_id: {"selectedMonth": "2026-10"})
+    monkeypatch.setattr(storage, "save_state_to_database", lambda state, url, user_id: saved.append((state, url, user_id)))
 
     assert storage.storage_backend_label() == "PostgreSQL database"
     assert storage.ensure_state()["selectedMonth"] == "2026-10"
 
     storage.save_state({"selectedMonth": "2026-11"})
-    assert saved == [({"selectedMonth": "2026-11"}, "postgresql://example")]
+    assert saved == [({"selectedMonth": "2026-11"}, "postgresql://example", "user-123")]

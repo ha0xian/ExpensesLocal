@@ -5,9 +5,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-STATE_ROW_ID = "default"
-
-
 def _connect(database_url: str):
     """Create a psycopg connection.
 
@@ -22,8 +19,8 @@ def _connect(database_url: str):
 def _ensure_table(cursor) -> None:
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS app_state (
-            id text PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS user_app_state (
+            user_id text PRIMARY KEY,
             state jsonb NOT NULL,
             updated_at timestamptz NOT NULL DEFAULT now()
         )
@@ -41,20 +38,20 @@ def _decode_state(value: Any) -> dict | None:
     return dict(value)
 
 
-def load_state_from_database(database_url: str) -> dict | None:
+def load_state_from_database(database_url: str, user_id: str) -> dict | None:
     """Return the persisted app state, or None when the state row is absent."""
     with _connect(database_url) as conn:
         with conn.cursor() as cursor:
             _ensure_table(cursor)
             cursor.execute(
-                "SELECT state FROM app_state WHERE id = %s",
-                (STATE_ROW_ID,),
+                "SELECT state FROM user_app_state WHERE user_id = %s",
+                (user_id,),
             )
             row = cursor.fetchone()
             return _decode_state(row[0]) if row else None
 
 
-def save_state_to_database(state: dict, database_url: str) -> None:
+def save_state_to_database(state: dict, database_url: str, user_id: str) -> None:
     """Persist the complete app state as a single JSONB document."""
     payload = json.dumps(state)
     with _connect(database_url) as conn:
@@ -62,10 +59,10 @@ def save_state_to_database(state: dict, database_url: str) -> None:
             _ensure_table(cursor)
             cursor.execute(
                 """
-                INSERT INTO app_state (id, state, updated_at)
+                INSERT INTO user_app_state (user_id, state, updated_at)
                 VALUES (%s, %s::jsonb, now())
-                ON CONFLICT (id)
+                ON CONFLICT (user_id)
                 DO UPDATE SET state = EXCLUDED.state, updated_at = now()
                 """,
-                (STATE_ROW_ID, payload),
+                (user_id, payload),
             )

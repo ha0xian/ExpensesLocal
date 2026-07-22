@@ -984,3 +984,10 @@ tr:last-child td {
     min-width: 0;
   }
 }
+.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 2rem; background: #f3f4f6; }
+.auth-card { width: min(100%, 420px); padding: 2rem; border: 1px solid #dfe3e8; border-radius: 18px; background: white; box-shadow: 0 18px 50px rgba(15, 23, 42, .09); }
+.auth-card form { display: grid; gap: 1rem; margin: 1.5rem 0 1rem; }
+.auth-card input { width: 100%; box-sizing: border-box; }
+.auth-eyebrow { color: #52606d; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.auth-link { display: block; border: 0; background: transparent; color: #3156a3; padding: .4rem 0; cursor: pointer; }
+.account-email { color: #52606d; font-size: .85rem; }

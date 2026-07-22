@@ -15,6 +15,21 @@ All business logic runs server-side. The frontend calls `/api` endpoints (proxie
 
 ## Run Locally
 
+## Accounts and authentication
+
+Production access uses Supabase Auth. Create a Supabase project, enable email/password authentication, and configure the frontend from `.env.example`:
+
+```text
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-public-anon-key
+```
+
+Configure the backend with the same `SUPABASE_URL` plus `DATABASE_URL`. Never put a Supabase service-role key in the frontend. The API validates each access token against Supabase JWKS and stores state in `user_app_state`, keyed by the token's user ID.
+
+For trusted local CSV development only, set `AUTH_DISABLED=true` on the backend and `VITE_AUTH_DISABLED=true` for Vite. Authentication-enabled deployments require PostgreSQL so different users can never share the CSV fallback.
+
+The previous `app_state` table is left untouched. To migrate legacy data, export it before deployment, sign in as the intended owner, and import the CSV through that account; this prevents accidental assignment to the wrong user.
+
 ### Prerequisites
 
 - Node.js (for the frontend)

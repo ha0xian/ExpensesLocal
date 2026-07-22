@@ -1,0 +1,9 @@
+{
+  "feature": "feature-account-authentication",
+  "plan": ".ai/plans/feature-account-authentication.md",
+  "status": "ready_for_review",
+  "open_questions": [
+    "Which production user, if any, should receive the existing shared state?"
+  ],
+  "blocked_reason": null
+}

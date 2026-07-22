@@ -19,7 +19,7 @@ _TEMP_CSV_PATH = Path(_TEMP_DATA_DIR.name) / "expense-data.csv"
 # etc. pick up the temp path.
 _patcher = patch("app.config.APP_CSV_PATH", _TEMP_CSV_PATH)
 _patcher.start()
-_env_patcher = patch.dict(os.environ, {"DATABASE_URL": ""})
+_env_patcher = patch.dict(os.environ, {"DATABASE_URL": "", "AUTH_DISABLED": "true"})
 _env_patcher.start()
 
 
