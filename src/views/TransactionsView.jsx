@@ -7,6 +7,14 @@ const TRANSACTION_TYPES = ["Expense", "Income", "Transfer"];
 const FALLBACK_PRESETS = ["Weekly", "Biweekly", "Monthly", "Quarterly", "Yearly", "Custom"];
 const FALLBACK_UNITS = ["Days", "Weeks", "Months", "Years"];
 
+function todayLocal() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function TransactionsView({
   state,
   config,
@@ -19,7 +27,7 @@ export function TransactionsView({
 
   const firstCategory = state.categories[0]?.name || "";
   const [form, setForm] = useState({
-    date: "",
+    date: todayLocal(),
     type: "Expense",
     category: firstCategory,
     subcategory: subcategoriesFor(state, firstCategory)[0]?.name || "",
@@ -27,8 +35,6 @@ export function TransactionsView({
     amount: "",
     merchantPayee: "",
     description: "",
-    essential: false,
-    reimbursable: false,
     notes: "",
     makeAutomatic: false,
     endDate: "",
@@ -55,12 +61,10 @@ export function TransactionsView({
     if (success) {
       setForm((previous) => ({
         ...previous,
-        date: "",
+        date: todayLocal(),
         amount: "",
         merchantPayee: "",
         description: "",
-        essential: false,
-        reimbursable: false,
         notes: "",
         makeAutomatic: false,
         endDate: "",
@@ -91,17 +95,10 @@ export function TransactionsView({
               {addSubcategories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
             </select>
           </Field>
-          <Field label="Account">
-            <select name="account" value={form.account} onChange={(event) => updateForm("account", event.target.value)}>
-              {state.accounts.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-            </select>
-          </Field>
           <Field label="Amount"><input name="amount" type="number" step="0.01" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} /></Field>
-          <Field label="Merchant/Payee" className="wide"><input name="merchantPayee" value={form.merchantPayee} onChange={(event) => updateForm("merchantPayee", event.target.value)} /></Field>
-          <Field label="Description" className="wide"><input name="description" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
-          <label className="check-field"><input name="essential" type="checkbox" checked={form.essential} onChange={(event) => updateForm("essential", event.target.checked)} /><span>Essential</span></label>
-          <label className="check-field"><input name="reimbursable" type="checkbox" checked={form.reimbursable} onChange={(event) => updateForm("reimbursable", event.target.checked)} /><span>Reimbursable</span></label>
-          <Field label="Notes" className="wide"><input name="notes" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} /></Field>
+          <Field label="Merchant/Payee (optional)" className="wide"><input name="merchantPayee" value={form.merchantPayee} onChange={(event) => updateForm("merchantPayee", event.target.value)} /></Field>
+          <Field label="Description (optional)" className="wide"><input name="description" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
+          <Field label="Notes (optional)" className="wide"><input name="notes" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} /></Field>
           <label className="check-field"><input name="makeAutomatic" type="checkbox" checked={form.makeAutomatic} onChange={(event) => updateForm("makeAutomatic", event.target.checked)} /><span>Make automatic</span></label>
           {form.makeAutomatic ? (
             <>

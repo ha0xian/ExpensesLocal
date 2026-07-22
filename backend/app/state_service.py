@@ -232,13 +232,15 @@ def create_transaction(form: dict) -> dict:
     state, auto_status = _load_and_automate(run_automation=False)
     amount = abs(float(form.get("amount", 0) or 0))
     currency = state.get("currency", "USD")
+    default_account = state.get("accounts", [{}])[0].get("name", "") if state.get("accounts") else ""
+    account = form.get("account") or default_account
     transaction = {
         "id": _uid("txn"),
         "date": form.get("date", ""),
         "type": form.get("type", "Expense"),
         "category": form.get("category", ""),
         "subcategory": form.get("subcategory", ""),
-        "account": form.get("account", ""),
+        "account": account,
         "merchantPayee": form.get("merchantPayee", ""),
         "description": form.get("description", ""),
         "amount": amount,
@@ -265,7 +267,7 @@ def create_transaction(form: dict) -> dict:
             "type": form.get("type", "Expense"),
             "category": form.get("category", ""),
             "subcategory": form.get("subcategory", ""),
-            "account": form.get("account", ""),
+            "account": account,
             "merchantPayee": form.get("merchantPayee", ""),
             "description": form.get("description", ""),
             "amount": amount,

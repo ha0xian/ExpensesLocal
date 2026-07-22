@@ -81,6 +81,26 @@ def test_post_transaction_persists_and_returns_derived():
     assert "summary" in data["derived"]
 
 
+def test_post_transaction_defaults_account_and_optional_fields():
+    """The simplified transaction form can omit account and descriptive fields."""
+    response = client.post("/api/transactions", json={
+        "date": "2026-06-16",
+        "type": "Expense",
+        "category": "Housing",
+        "subcategory": "Rent",
+        "amount": 25.0,
+    })
+
+    assert response.status_code == 200
+    transaction = response.json()["state"]["transactions"][0]
+    assert transaction["account"] == "Checking"
+    assert transaction["merchantPayee"] == ""
+    assert transaction["description"] == ""
+    assert transaction["notes"] == ""
+    assert transaction["essential"] is False
+    assert transaction["reimbursable"] is False
+
+
 def test_csv_import_replaces_state():
     """POST /api/csv/import replaces server state from CSV text."""
     # Build a minimal CSV
