@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "./components/AppShell.jsx";
 import { Tabs } from "./components/Tabs.jsx";
 import { TopBar } from "./components/TopBar.jsx";
@@ -31,6 +31,7 @@ export default function App({ session, onSignOut }) {
   } = useExpenseState();
 
   const [currentView, setCurrentView] = useState("dashboard");
+  const [monthlySetupDirty, setMonthlySetupDirty] = useState(false);
   const [bankImport, setBankImport] = useState({ headers: [], rows: [], mapping: {}, previewRows: [] });
 
   // -----------------------------------------------------------------------
@@ -50,9 +51,31 @@ export default function App({ session, onSignOut }) {
   // Month
   // -----------------------------------------------------------------------
 
+  const confirmDiscardMonthlySetup = useCallback(() => (
+    !monthlySetupDirty || window.confirm("You have unsaved Monthly Setup changes. Leave without saving them?")
+  ), [monthlySetupDirty]);
+
+  const handleViewChange = useCallback((view) => {
+    if (view === currentView || !confirmDiscardMonthlySetup()) return;
+    setMonthlySetupDirty(false);
+    setCurrentView(view);
+  }, [confirmDiscardMonthlySetup, currentView]);
+
+  useEffect(() => {
+    if (!monthlySetupDirty) return undefined;
+    const warnBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [monthlySetupDirty]);
+
   const handleMonthChange = useCallback((month) => {
+    if (!confirmDiscardMonthlySetup()) return;
+    setMonthlySetupDirty(false);
     mutate(() => api.updateSelectedMonth(month));
-  }, [mutate]);
+  }, [confirmDiscardMonthlySetup, mutate]);
 
   // -----------------------------------------------------------------------
   // CSV import / export
@@ -193,8 +216,15 @@ export default function App({ session, onSignOut }) {
   // Monthly setup
   // -----------------------------------------------------------------------
 
-  const handleUpdateMonthlySetup = useCallback((id, field, value) => {
-    mutate(() => api.updateMonthlySetup(id, field, value));
+  const handleSaveMonthlySetup = useCallback(async (updates) => {
+    try {
+      await mutate(() => api.updateMonthlySetupBatch(updates));
+      setMonthlySetupDirty(false);
+      return true;
+    } catch (err) {
+      alert(err.message || "Failed to save Monthly Setup.");
+      return false;
+    }
   }, [mutate]);
 
   const handleFillMissingMonthlySetup = useCallback(() => {
@@ -310,7 +340,7 @@ export default function App({ session, onSignOut }) {
     />
   );
 
-  const tabs = <Tabs currentView={currentView} onViewChange={setCurrentView} />;
+  const tabs = <Tabs currentView={currentView} onViewChange={handleViewChange} />;
 
   return (
     <AppShell topBar={topBar} tabs={tabs}>
@@ -355,7 +385,8 @@ export default function App({ session, onSignOut }) {
           state={state}
           availableToAssign={availableToAssign}
           envelopeRows={envelopeRows}
-          onUpdateMonthlySetup={handleUpdateMonthlySetup}
+          onSaveMonthlySetup={handleSaveMonthlySetup}
+          onDirtyChange={setMonthlySetupDirty}
           onFillMissingMonthlySetup={handleFillMissingMonthlySetup}
         />
       ) : null}

@@ -95,7 +95,7 @@ export function TransactionsView({
               {addSubcategories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
             </select>
           </Field>
-          <Field label="Amount"><input name="amount" type="number" step="0.01" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} /></Field>
+          <Field label="Amount"><input name="amount" type="number" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} /></Field>
           <Field label="Merchant/Payee (optional)" className="wide"><input name="merchantPayee" value={form.merchantPayee} onChange={(event) => updateForm("merchantPayee", event.target.value)} /></Field>
           <Field label="Description (optional)" className="wide"><input name="description" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
           <Field label="Notes (optional)" className="wide"><input name="notes" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} /></Field>
@@ -109,7 +109,7 @@ export function TransactionsView({
               </Field>
               {form.frequency === "Custom" ? (
                 <>
-                  <Field label="Every"><input name="customInterval" type="number" min="1" step="1" value={form.customInterval} onChange={(event) => updateForm("customInterval", event.target.value)} /></Field>
+                  <Field label="Every"><input name="customInterval" type="number" min="1" value={form.customInterval} onChange={(event) => updateForm("customInterval", event.target.value)} /></Field>
                   <Field label="Unit">
                     <select name="customUnit" value={form.customUnit} onChange={(event) => updateForm("customUnit", event.target.value)}>
                       {recurrenceUnits.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -133,7 +133,7 @@ export function TransactionsView({
               <td><select value={item.subcategory} onChange={(event) => onUpdateTransaction(item.id, "subcategory", event.target.value)}>{subcategoriesFor(state, item.category).map((subcategory) => <option key={subcategory.id} value={subcategory.name}>{subcategory.name}</option>)}</select></td>
               <td><select value={item.account} onChange={(event) => onUpdateTransaction(item.id, "account", event.target.value)}>{state.accounts.map((account) => <option key={account.id} value={account.name}>{account.name}</option>)}</select></td>
               <td><input value={item.merchantPayee || ""} onChange={(event) => onUpdateTransaction(item.id, "merchantPayee", event.target.value)} /></td>
-              <td><input type="number" step="0.01" value={item.amount} onChange={(event) => onUpdateTransaction(item.id, "amount", event.target.value)} /></td>
+              <td><input type="number" value={item.amount} onChange={(event) => onUpdateTransaction(item.id, "amount", event.target.value)} /></td>
               <td><button className="danger" type="button" onClick={() => onDeleteTransaction(item.id)}>Delete</button></td>
             </tr>
           ))}

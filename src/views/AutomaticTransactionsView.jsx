@@ -80,7 +80,7 @@ export function AutomaticTransactionsView({
           </Field>
           {form.frequency === "Custom" ? (
             <>
-              <Field label="Every"><input name="customInterval" type="number" min="1" step="1" value={form.customInterval} onChange={(event) => updateForm("customInterval", event.target.value)} /></Field>
+              <Field label="Every"><input name="customInterval" type="number" min="1" value={form.customInterval} onChange={(event) => updateForm("customInterval", event.target.value)} /></Field>
               <Field label="Unit">
                 <select name="customUnit" value={form.customUnit} onChange={(event) => updateForm("customUnit", event.target.value)}>
                   {recurrenceUnits.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -108,7 +108,7 @@ export function AutomaticTransactionsView({
               {state.accounts.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
             </select>
           </Field>
-          <Field label="Amount"><input name="amount" type="number" step="0.01" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} /></Field>
+          <Field label="Amount"><input name="amount" type="number" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} /></Field>
           <Field label="Merchant/Payee" className="wide"><input name="merchantPayee" value={form.merchantPayee} onChange={(event) => updateForm("merchantPayee", event.target.value)} /></Field>
           <Field label="Description" className="wide"><input name="description" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
           <label className="check-field"><input name="essential" type="checkbox" checked={form.essential} onChange={(event) => updateForm("essential", event.target.checked)} /><span>Essential</span></label>
@@ -127,7 +127,7 @@ export function AutomaticTransactionsView({
               <td><select value={item.frequency} onChange={(event) => onUpdateAutomaticTransaction(item.id, "frequency", event.target.value)}>{recurrencePresets.map((frequency) => <option key={frequency} value={frequency}>{frequency}</option>)}</select></td>
               <td>
                 <div className="inline-fields">
-                  <input type="number" min="1" step="1" value={item.customInterval} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customInterval", event.target.value)} />
+                  <input type="number" min="1" value={item.customInterval} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customInterval", event.target.value)} />
                   <select value={item.customUnit} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customUnit", event.target.value)}>{recurrenceUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select>
                 </div>
               </td>
@@ -136,7 +136,7 @@ export function AutomaticTransactionsView({
               <td><select value={item.subcategory} onChange={(event) => onUpdateAutomaticTransaction(item.id, "subcategory", event.target.value)}>{subcategoriesFor(state, item.category).map((subcategory) => <option key={subcategory.id} value={subcategory.name}>{subcategory.name}</option>)}</select></td>
               <td><select value={item.account} onChange={(event) => onUpdateAutomaticTransaction(item.id, "account", event.target.value)}>{state.accounts.map((account) => <option key={account.id} value={account.name}>{account.name}</option>)}</select></td>
               <td><input value={item.merchantPayee || ""} onChange={(event) => onUpdateAutomaticTransaction(item.id, "merchantPayee", event.target.value)} /></td>
-              <td><input type="number" step="0.01" value={item.amount} onChange={(event) => onUpdateAutomaticTransaction(item.id, "amount", event.target.value)} /></td>
+              <td><input type="number" value={item.amount} onChange={(event) => onUpdateAutomaticTransaction(item.id, "amount", event.target.value)} /></td>
               <td><button className="danger" type="button" onClick={() => onDeleteAutomaticTransaction(item.id)}>Delete</button></td>
             </tr>
           ))}

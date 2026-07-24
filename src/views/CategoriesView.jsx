@@ -45,7 +45,7 @@ export function CategoriesView({
           <form className="form-grid" onSubmit={submitCategory}>
             <Field label="Name" className="wide"><input value={categoryForm.name} onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })} /></Field>
             <Field label="Group"><select value={categoryForm.group} onChange={(event) => setCategoryForm({ ...categoryForm, group: event.target.value })}>{categoryGroups.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
-            <Field label="Default Budget"><input type="number" step="0.01" value={categoryForm.defaultBudget} onChange={(event) => setCategoryForm({ ...categoryForm, defaultBudget: event.target.value })} /></Field>
+            <Field label="Default Budget"><input type="number" value={categoryForm.defaultBudget} onChange={(event) => setCategoryForm({ ...categoryForm, defaultBudget: event.target.value })} /></Field>
             <Field label="Tax/Business"><select value={categoryForm.taxBusinessReady} onChange={(event) => setCategoryForm({ ...categoryForm, taxBusinessReady: event.target.value })}>{taxOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
             <Field label="Notes" className="wide"><input value={categoryForm.notes} onChange={(event) => setCategoryForm({ ...categoryForm, notes: event.target.value })} /></Field>
             <div className="actions"><button className="primary" type="submit">Add Category</button></div>
@@ -57,7 +57,7 @@ export function CategoriesView({
             <Field label="Name" className="wide"><input value={subcategoryForm.name} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, name: event.target.value })} /></Field>
             <Field label="Envelope Group"><input value={subcategoryForm.envelopeGroup} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, envelopeGroup: event.target.value })} /></Field>
             <Field label="Style"><select value={subcategoryForm.envelopeStyle} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, envelopeStyle: event.target.value })}>{envelopeStyles.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
-            <Field label="Default Target"><input type="number" step="0.01" value={subcategoryForm.defaultMonthlyTarget} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, defaultMonthlyTarget: event.target.value })} /></Field>
+            <Field label="Default Target"><input type="number" value={subcategoryForm.defaultMonthlyTarget} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, defaultMonthlyTarget: event.target.value })} /></Field>
             <Field label="Notes" className="wide"><input value={subcategoryForm.notes} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, notes: event.target.value })} /></Field>
             <div className="actions"><button className="primary" type="submit">Add Subcategory</button></div>
           </form>
@@ -70,7 +70,7 @@ export function CategoriesView({
               <tr key={item.id}>
                 <td><input value={item.name} onChange={(event) => onUpdateCategory(item.id, "name", event.target.value)} /></td>
                 <td><select value={item.group} onChange={(event) => onUpdateCategory(item.id, "group", event.target.value)}>{categoryGroups.map((group) => <option key={group} value={group}>{group}</option>)}</select></td>
-                <td><input type="number" step="0.01" value={item.defaultBudget} onChange={(event) => onUpdateCategory(item.id, "defaultBudget", event.target.value)} /></td>
+                <td><input type="number" value={item.defaultBudget} onChange={(event) => onUpdateCategory(item.id, "defaultBudget", event.target.value)} /></td>
                 <td><select value={item.taxBusinessReady} onChange={(event) => onUpdateCategory(item.id, "taxBusinessReady", event.target.value)}>{taxOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></td>
                 <td><button className="danger" type="button" onClick={() => onDeleteCategory(item.id)}>Delete</button></td>
               </tr>
@@ -85,7 +85,7 @@ export function CategoriesView({
                 <td><input value={item.name} onChange={(event) => onUpdateSubcategory(item.id, "name", event.target.value)} /></td>
                 <td><input value={item.envelopeGroup} onChange={(event) => onUpdateSubcategory(item.id, "envelopeGroup", event.target.value)} /></td>
                 <td><select value={item.envelopeStyle} onChange={(event) => onUpdateSubcategory(item.id, "envelopeStyle", event.target.value)}>{envelopeStyles.map((style) => <option key={style} value={style}>{style}</option>)}</select></td>
-                <td><input type="number" step="0.01" value={item.defaultMonthlyTarget} onChange={(event) => onUpdateSubcategory(item.id, "defaultMonthlyTarget", event.target.value)} /></td>
+                <td><input type="number" value={item.defaultMonthlyTarget} onChange={(event) => onUpdateSubcategory(item.id, "defaultMonthlyTarget", event.target.value)} /></td>
                 <td><button className="danger" type="button" onClick={() => onDeleteSubcategory(item.id)}>Delete</button></td>
               </tr>
             ))}

@@ -37,6 +37,7 @@ from .state_service import (
     update_automatic_transaction,
     update_category,
     update_monthly_setup,
+    update_monthly_setup_batch,
     update_selected_month,
     update_subcategory,
     update_transaction,
@@ -267,6 +268,15 @@ async def patch_monthly_setup(setup_id: str, payload: dict):
     if not field:
         raise HTTPException(status_code=400, detail="Field is required.")
     return update_monthly_setup(setup_id, field, value)
+
+
+@router.put("/monthly-setup")
+@_handle_errors
+async def put_monthly_setup(payload: dict):
+    updates = payload.get("updates")
+    if not isinstance(updates, list):
+        raise HTTPException(status_code=400, detail="Updates must be a list.")
+    return update_monthly_setup_batch(updates)
 
 
 @router.post("/monthly-setup/fill-missing")

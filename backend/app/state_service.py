@@ -517,6 +517,32 @@ def update_monthly_setup(setup_id: str, field: str, value) -> dict:
     return _build_snapshot(state, auto_status)
 
 
+def update_monthly_setup_batch(updates: list[dict]) -> dict:
+    state, auto_status = _load_and_automate(run_automation=False)
+    items_by_id = {item["id"]: dict(item) for item in state.get("monthlySetup", [])}
+    allowed_fields = {"monthlyTarget", "startingBalance", "rollover"}
+
+    for update in updates:
+        setup_id = update.get("id", "")
+        field = update.get("field", "")
+        if setup_id not in items_by_id:
+            raise LookupError(f"Monthly setup not found: {setup_id}")
+        if field not in allowed_fields:
+            raise ValueError(f"Unsupported monthly setup field: {field}")
+
+        value = update.get("value")
+        if field == "rollover":
+            items_by_id[setup_id][field] = bool(value)
+        else:
+            items_by_id[setup_id][field] = float(value or 0) or 0
+
+    state["monthlySetup"] = [
+        items_by_id[item["id"]] for item in state.get("monthlySetup", [])
+    ]
+    save_state(state)
+    return _build_snapshot(state, auto_status)
+
+
 def fill_missing_monthly_setup() -> dict:
     state, auto_status = _load_and_automate(run_automation=False)
     month = state.get("selectedMonth", "2026-01")

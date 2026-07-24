@@ -141,6 +141,22 @@ def test_update_month():
     assert data["state"]["selectedMonth"] == "2026-03"
 
 
+def test_batch_update_monthly_setup():
+    before = client.post("/api/monthly-setup/fill-missing").json()
+    setup = before["state"]["monthlySetup"][0]
+    response = client.put("/api/monthly-setup", json={"updates": [
+        {"id": setup["id"], "field": "monthlyTarget", "value": "123.456"},
+        {"id": setup["id"], "field": "rollover", "value": True},
+    ]})
+    assert response.status_code == 200
+    updated = next(
+        item for item in response.json()["state"]["monthlySetup"]
+        if item["id"] == setup["id"]
+    )
+    assert updated["monthlyTarget"] == 123.456
+    assert updated["rollover"] is True
+
+
 def test_delete_nonexistent_transaction_returns_404():
     response = client.delete("/api/transactions/nonexistent-id")
     assert response.status_code == 404
