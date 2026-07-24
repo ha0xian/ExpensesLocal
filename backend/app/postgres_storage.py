@@ -1,4 +1,4 @@
-"""PostgreSQL app-state persistence for Supabase-compatible deployments."""
+"""PostgreSQL app-state persistence for Neon-compatible deployments."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from typing import Any
 def _connect(database_url: str):
     """Create a psycopg connection.
 
-    ``prepare_threshold=None`` keeps the connection friendly to Supabase pooler
-    modes that do not support server-side prepared statements.
+    ``prepare_threshold=None`` keeps the connection friendly to transaction
+    poolers that do not support server-side prepared statements.
     """
     import psycopg
 

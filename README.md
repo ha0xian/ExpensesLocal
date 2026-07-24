@@ -5,7 +5,7 @@ A React + Vite frontend powered by a Python FastAPI backend. The backend owns ex
 ## Architecture
 
 ```
-DATABASE_URL                    <- PostgreSQL app state when set, compatible with Supabase
+DATABASE_URL                    <- Neon/PostgreSQL users and app state
 backend/data/expense-data.csv   <- local CSV fallback when DATABASE_URL is not set
 backend/app/                    <- FastAPI package (models, routes, services, storage, calculations, automation)
 src/                            <- React 19 + Vite frontend (API client)
@@ -17,16 +17,16 @@ All business logic runs server-side. The frontend calls `/api` endpoints (proxie
 
 ## Accounts and authentication
 
-Production access uses Supabase Auth. Create a Supabase project, enable email/password authentication, and configure the frontend from `.env.example`:
+Production accounts are managed by the FastAPI backend and stored in Neon PostgreSQL. Configure these variables on Render:
 
 ```text
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-public-anon-key
+DATABASE_URL=postgresql://your-neon-connection-string
+AUTH_SECRET=a-random-secret-containing-at-least-32-characters
 ```
 
-Configure the backend with the same `SUPABASE_URL` plus `DATABASE_URL`. Never put a Supabase service-role key in the frontend. The API validates each access token against Supabase JWKS and stores state in `user_app_state`, keyed by the token's user ID.
+The backend creates a `users` table for email/password accounts and a `user_app_state` table for isolated expense data. Passwords are hashed with Argon2. Signed sessions are stored in secure HTTP-only cookies, so no authentication secrets or provider keys are required by the frontend.
 
-For trusted local CSV development only, set `AUTH_DISABLED=true` on the backend and `VITE_AUTH_DISABLED=true` for Vite. Authentication-enabled deployments require PostgreSQL so different users can never share the CSV fallback.
+For trusted local CSV development only, set `AUTH_DISABLED=true` and `COOKIE_SECURE=false` on the backend. Authentication-enabled deployments require PostgreSQL so different users can never share the CSV fallback.
 
 The previous `app_state` table is left untouched. To migrate legacy data, export it before deployment, sign in as the intended owner, and import the CSV through that account; this prevents accidental assignment to the wrong user.
 
@@ -47,9 +47,9 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 The backend serves on http://127.0.0.1:8000. Health check: http://127.0.0.1:8000/api/health
 
-### Supabase / PostgreSQL
+### Neon / PostgreSQL
 
-Set `DATABASE_URL` before starting the backend to store app state in PostgreSQL instead of `backend/data/expense-data.csv`:
+Set the Neon `DATABASE_URL` before starting the backend to store accounts and app state in PostgreSQL instead of `backend/data/expense-data.csv`:
 
 ```bash
 cd backend

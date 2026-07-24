@@ -1,0 +1,7 @@
+{
+  "feature": "fix-remove-supabase-auth",
+  "plan": ".ai/plans/fix-remove-supabase-auth.md",
+  "status": "ready_for_review",
+  "open_questions": [],
+  "blocked_reason": null
+}

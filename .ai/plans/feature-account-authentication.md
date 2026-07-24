@@ -1,5 +1,7 @@
 # Plan: Account Authentication
 
+> Superseded by `fix-remove-supabase-auth.md`. The project uses application-owned authentication with Render and Neon, not Supabase.
+
 ## Goal
 
 Add Supabase-backed user accounts and require authentication before accessing expense data, with each authenticated user receiving an isolated app state.
