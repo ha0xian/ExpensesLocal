@@ -31,7 +31,7 @@ export default function App({ session, onSignOut }) {
   } = useExpenseState();
 
   const [currentView, setCurrentView] = useState("dashboard");
-  const [monthlySetupDirty, setMonthlySetupDirty] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [bankImport, setBankImport] = useState({ headers: [], rows: [], mapping: {}, previewRows: [] });
 
   // -----------------------------------------------------------------------
@@ -51,31 +51,31 @@ export default function App({ session, onSignOut }) {
   // Month
   // -----------------------------------------------------------------------
 
-  const confirmDiscardMonthlySetup = useCallback(() => (
-    !monthlySetupDirty || window.confirm("You have unsaved Monthly Setup changes. Leave without saving them?")
-  ), [monthlySetupDirty]);
+  const confirmDiscardChanges = useCallback(() => (
+    !hasUnsavedChanges || window.confirm("You have unsaved changes. Leave without saving them?")
+  ), [hasUnsavedChanges]);
 
   const handleViewChange = useCallback((view) => {
-    if (view === currentView || !confirmDiscardMonthlySetup()) return;
-    setMonthlySetupDirty(false);
+    if (view === currentView || !confirmDiscardChanges()) return;
+    setHasUnsavedChanges(false);
     setCurrentView(view);
-  }, [confirmDiscardMonthlySetup, currentView]);
+  }, [confirmDiscardChanges, currentView]);
 
   useEffect(() => {
-    if (!monthlySetupDirty) return undefined;
+    if (!hasUnsavedChanges) return undefined;
     const warnBeforeUnload = (event) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warnBeforeUnload);
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [monthlySetupDirty]);
+  }, [hasUnsavedChanges]);
 
   const handleMonthChange = useCallback((month) => {
-    if (!confirmDiscardMonthlySetup()) return;
-    setMonthlySetupDirty(false);
+    if (!confirmDiscardChanges()) return;
+    setHasUnsavedChanges(false);
     mutate(() => api.updateSelectedMonth(month));
-  }, [confirmDiscardMonthlySetup, mutate]);
+  }, [confirmDiscardChanges, mutate]);
 
   // -----------------------------------------------------------------------
   // CSV import / export
@@ -165,7 +165,7 @@ export default function App({ session, onSignOut }) {
   }, [mutate]);
 
   const handleUpdateCategory = useCallback((id, field, value) => {
-    mutate(() => api.updateCategory(id, field, value));
+    return mutate(() => api.updateCategory(id, field, value));
   }, [mutate]);
 
   const handleDeleteCategory = useCallback((id) => {
@@ -183,7 +183,7 @@ export default function App({ session, onSignOut }) {
   }, [mutate]);
 
   const handleUpdateSubcategory = useCallback((id, field, value) => {
-    mutate(() => api.updateSubcategory(id, field, value));
+    return mutate(() => api.updateSubcategory(id, field, value));
   }, [mutate]);
 
   const handleDeleteSubcategory = useCallback((id) => {
@@ -219,7 +219,7 @@ export default function App({ session, onSignOut }) {
   const handleSaveMonthlySetup = useCallback(async (updates) => {
     try {
       await mutate(() => api.updateMonthlySetupBatch(updates));
-      setMonthlySetupDirty(false);
+      setHasUnsavedChanges(false);
       return true;
     } catch (err) {
       alert(err.message || "Failed to save Monthly Setup.");
@@ -386,7 +386,7 @@ export default function App({ session, onSignOut }) {
           availableToAssign={availableToAssign}
           envelopeRows={envelopeRows}
           onSaveMonthlySetup={handleSaveMonthlySetup}
-          onDirtyChange={setMonthlySetupDirty}
+          onDirtyChange={setHasUnsavedChanges}
           onFillMissingMonthlySetup={handleFillMissingMonthlySetup}
         />
       ) : null}
@@ -400,6 +400,7 @@ export default function App({ session, onSignOut }) {
           onAddSubcategory={handleAddSubcategory}
           onUpdateSubcategory={handleUpdateSubcategory}
           onDeleteSubcategory={handleDeleteSubcategory}
+          onDirtyChange={setHasUnsavedChanges}
         />
       ) : null}
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Field, Panel, Table } from "../components/ui.jsx";
 
 const categoryGroups = ["Needs", "Wants", "Growth", "Savings", "Business", "Other"];
@@ -12,7 +12,8 @@ export function CategoriesView({
   onDeleteCategory,
   onAddSubcategory,
   onUpdateSubcategory,
-  onDeleteSubcategory
+  onDeleteSubcategory,
+  onDirtyChange
 }) {
   const [categoryForm, setCategoryForm] = useState({ name: "", group: "Needs", defaultBudget: "0", taxBusinessReady: "No", notes: "" });
   const [subcategoryForm, setSubcategoryForm] = useState({
@@ -23,6 +24,48 @@ export function CategoriesView({
     defaultMonthlyTarget: "0",
     notes: ""
   });
+  const initialBudgets = useMemo(() => ({
+    categories: Object.fromEntries(state.categories.map((item) => [item.id, String(item.defaultBudget)])),
+    subcategories: Object.fromEntries(state.subcategories.map((item) => [item.id, String(item.defaultMonthlyTarget)])),
+  }), [state.categories, state.subcategories]);
+  const [budgetDraft, setBudgetDraft] = useState(initialBudgets);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(budgetDraft) !== JSON.stringify(initialBudgets);
+
+  useEffect(() => setBudgetDraft(initialBudgets), [initialBudgets]);
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
+
+  function updateBudgetDraft(collection, id, value) {
+    setBudgetDraft((previous) => ({
+      ...previous,
+      [collection]: { ...previous[collection], [id]: value },
+    }));
+  }
+
+  async function saveBudgets() {
+    setSaving(true);
+    try {
+      for (const item of state.categories) {
+        const value = budgetDraft.categories[item.id];
+        if (value !== initialBudgets.categories[item.id]) {
+          await onUpdateCategory(item.id, "defaultBudget", value);
+        }
+      }
+      for (const item of state.subcategories) {
+        const value = budgetDraft.subcategories[item.id];
+        if (value !== initialBudgets.subcategories[item.id]) {
+          await onUpdateSubcategory(item.id, "defaultMonthlyTarget", value);
+        }
+      }
+    } catch (error) {
+      alert(error.message || "Failed to save budget changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function submitCategory(event) {
     event.preventDefault();
@@ -64,13 +107,16 @@ export function CategoriesView({
         </Panel>
       </section>
       <section className="grid two">
-        <Panel title="Categories">
+        <Panel
+          title="Categories"
+          action={<button className="primary" type="button" onClick={saveBudgets} disabled={!dirty || saving}>{saving ? "Saving…" : "Save Changes"}</button>}
+        >
           <Table headers={["Name", "Group", "Default Budget", "Tax/Business", ""]}>
             {state.categories.map((item) => (
               <tr key={item.id}>
                 <td><input value={item.name} onChange={(event) => onUpdateCategory(item.id, "name", event.target.value)} /></td>
                 <td><select value={item.group} onChange={(event) => onUpdateCategory(item.id, "group", event.target.value)}>{categoryGroups.map((group) => <option key={group} value={group}>{group}</option>)}</select></td>
-                <td><input type="number" value={item.defaultBudget} onChange={(event) => onUpdateCategory(item.id, "defaultBudget", event.target.value)} /></td>
+                <td><input type="number" value={budgetDraft.categories[item.id] ?? ""} onChange={(event) => updateBudgetDraft("categories", item.id, event.target.value)} /></td>
                 <td><select value={item.taxBusinessReady} onChange={(event) => onUpdateCategory(item.id, "taxBusinessReady", event.target.value)}>{taxOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></td>
                 <td><button className="danger" type="button" onClick={() => onDeleteCategory(item.id)}>Delete</button></td>
               </tr>
@@ -85,7 +131,7 @@ export function CategoriesView({
                 <td><input value={item.name} onChange={(event) => onUpdateSubcategory(item.id, "name", event.target.value)} /></td>
                 <td><input value={item.envelopeGroup} onChange={(event) => onUpdateSubcategory(item.id, "envelopeGroup", event.target.value)} /></td>
                 <td><select value={item.envelopeStyle} onChange={(event) => onUpdateSubcategory(item.id, "envelopeStyle", event.target.value)}>{envelopeStyles.map((style) => <option key={style} value={style}>{style}</option>)}</select></td>
-                <td><input type="number" value={item.defaultMonthlyTarget} onChange={(event) => onUpdateSubcategory(item.id, "defaultMonthlyTarget", event.target.value)} /></td>
+                <td><input type="number" value={budgetDraft.subcategories[item.id] ?? ""} onChange={(event) => updateBudgetDraft("subcategories", item.id, event.target.value)} /></td>
                 <td><button className="danger" type="button" onClick={() => onDeleteSubcategory(item.id)}>Delete</button></td>
               </tr>
             ))}
