@@ -157,6 +157,14 @@ def test_batch_update_monthly_setup():
     assert updated["rollover"] is True
 
 
+def test_monthly_setup_cannot_be_updated_with_patch():
+    response = client.patch(
+        "/api/monthly-setup/any-id",
+        json={"field": "monthlyTarget", "value": "999"},
+    )
+    assert response.status_code == 404
+
+
 def test_delete_nonexistent_transaction_returns_404():
     response = client.delete("/api/transactions/nonexistent-id")
     assert response.status_code == 404

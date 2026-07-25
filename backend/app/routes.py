@@ -36,7 +36,6 @@ from .state_service import (
     update_account,
     update_automatic_transaction,
     update_category,
-    update_monthly_setup,
     update_monthly_setup_batch,
     update_selected_month,
     update_subcategory,
@@ -259,16 +258,6 @@ def delete_account_route(account_id: str):
 # ---------------------------------------------------------------------------
 # Monthly setup
 # ---------------------------------------------------------------------------
-
-@router.patch("/monthly-setup/{setup_id}")
-@_handle_errors
-async def patch_monthly_setup(setup_id: str, payload: dict):
-    field = payload.get("field", "")
-    value = payload.get("value")
-    if not field:
-        raise HTTPException(status_code=400, detail="Field is required.")
-    return update_monthly_setup(setup_id, field, value)
-
 
 @router.put("/monthly-setup")
 @_handle_errors

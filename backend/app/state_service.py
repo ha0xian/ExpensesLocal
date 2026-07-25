@@ -495,28 +495,6 @@ def delete_account(account_id: str) -> dict:
 # Monthly setup
 # ---------------------------------------------------------------------------
 
-def update_monthly_setup(setup_id: str, field: str, value) -> dict:
-    state, auto_status = _load_and_automate(run_automation=False)
-    _require_exists(state.get("monthlySetup", []), setup_id, "Monthly setup")
-    numeric_fields = {"monthlyTarget", "startingBalance"}
-    items = []
-    for ms in state.get("monthlySetup", []):
-        if ms["id"] != setup_id:
-            items.append(ms)
-            continue
-        ms = dict(ms)
-        if field == "rollover":
-            ms[field] = bool(value)
-        elif field in numeric_fields:
-            ms[field] = float(value or 0) or 0
-        else:
-            ms[field] = value
-        items.append(ms)
-    state["monthlySetup"] = items
-    save_state(state)
-    return _build_snapshot(state, auto_status)
-
-
 def update_monthly_setup_batch(updates: list[dict]) -> dict:
     state, auto_status = _load_and_automate(run_automation=False)
     items_by_id = {item["id"]: dict(item) for item in state.get("monthlySetup", [])}

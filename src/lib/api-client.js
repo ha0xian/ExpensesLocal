@@ -175,13 +175,6 @@ export function deleteAccount(id) {
 // Monthly setup
 // ---------------------------------------------------------------------------
 
-export function updateMonthlySetup(id, field, value) {
-  return request(`/monthly-setup/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify({ field, value }),
-  });
-}
-
 export function updateMonthlySetupBatch(updates) {
   return request("/monthly-setup", {
     method: "PUT",
