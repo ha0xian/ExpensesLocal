@@ -176,6 +176,67 @@ def test_patch_nonexistent_entity_returns_404():
     assert response.status_code == 404
 
 
+def _create_patchable_transaction():
+    state = client.get("/api/state").json()["state"]
+    category = state["categories"][0]
+    subcategory = next(
+        item for item in state["subcategories"] if item["category"] == category["name"]
+    )
+    account = state["accounts"][0]
+    response = client.post("/api/transactions", json={
+        "date": "2026-06-15", "type": "Expense", "category": category["name"],
+        "subcategory": subcategory["name"], "account": account["name"], "amount": 50,
+    })
+    assert response.status_code == 200
+    transaction_id = response.json()["state"]["transactions"][0]["id"]
+    stored = client.get("/api/state").json()["state"]["transactions"]
+    return next(item for item in stored if item["id"] == transaction_id)
+
+
+def test_atomic_transaction_patch_updates_all_fields_and_persists():
+    transaction = _create_patchable_transaction()
+    response = client.patch(f"/api/transactions/{transaction['id']}", json={"changes": {
+        "date": "2026-07-02", "amount": 19.75, "account": transaction["account"],
+        "category": transaction["category"], "subcategory": transaction["subcategory"],
+        "merchantPayee": "Market",
+    }})
+    assert response.status_code == 200
+    updated = next(item for item in response.json()["state"]["transactions"] if item["id"] == transaction["id"])
+    assert (updated["date"], updated["month"], updated["amount"], updated["account"]) == (
+        "2026-07-02", "2026-07", 19.75, transaction["account"]
+    )
+    reloaded = client.get("/api/state").json()["state"]["transactions"]
+    assert next(item for item in reloaded if item["id"] == transaction["id"])["merchantPayee"] == "Market"
+
+
+@pytest.mark.parametrize("changes", [
+    {"subcategory": "not-a-real-subcategory"},
+    {"amount": 0}, {"amount": "nan"}, {"date": "2026-99-01"}, {"unknown": "value"},
+])
+def test_atomic_transaction_patch_rejects_invalid_candidate_without_persisting(changes):
+    transaction = _create_patchable_transaction()
+    response = client.patch(f"/api/transactions/{transaction['id']}", json={"changes": changes})
+    assert response.status_code == 400
+    stored = next(item for item in client.get("/api/state").json()["state"]["transactions"] if item["id"] == transaction["id"])
+    assert stored == transaction
+
+
+def test_atomic_transaction_patch_missing_and_legacy_compatibility():
+    assert client.patch("/api/transactions/missing", json={"changes": {"amount": 10}}).status_code == 404
+    transaction = _create_patchable_transaction()
+    response = client.patch(f"/api/transactions/{transaction['id']}", json={"field": "notes", "value": "legacy"})
+    assert response.status_code == 200
+    assert next(item for item in response.json()["state"]["transactions"] if item["id"] == transaction["id"])["notes"] == "legacy"
+
+
+def test_atomic_transaction_patch_rejects_mixed_payload():
+    transaction = _create_patchable_transaction()
+    response = client.patch(f"/api/transactions/{transaction['id']}", json={
+        "field": "amount", "value": 10, "changes": {"amount": 20},
+    })
+    assert response.status_code == 400
+
+
 def test_automatic_transaction_rejects_impossible_date():
     payload = {
         "startDate": "2026-99-99",

@@ -1,118 +1,22 @@
-import {
-  AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  BadgePoundSterling,
-  ListChecks,
-  ShieldCheck,
-  Tags,
-  WalletCards,
-} from "lucide-react";
-import { Kpi, Panel, StatusPill, Table } from "../components/ui.jsx";
+import { AlertTriangle, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { EmptyState, Panel, StatusPill, Table } from "../components/ui.jsx";
 import { money } from "../lib/app-helpers.js";
+import { getBudgetUsage, getWarningDestination, isFirstUse } from "../lib/presentation.js";
 
-export function DashboardView({
-  state,
-  summary,
-  availableToAssign,
-  categoryRows,
-  envelopeRows,
-  warningCount,
-  warnings = [],
-}) {
+export function DashboardView({ state, summary, availableToAssign, categoryRows, envelopeRows, warnings = [], onNavigate, onAddTransaction }) {
   const currency = state.currency;
-  const visibleCategoryRows = categoryRows
-    .filter((row) => row.spend || row.budget)
-    .sort((a, b) => b.spend - a.spend);
-  const overdrawnRows = envelopeRows.filter((row) => row.overdrawn);
-  const budgetTotal = visibleCategoryRows.reduce((total, row) => total + (Number(row.budget) || 0), 0);
-  const spendTotal = visibleCategoryRows.reduce((total, row) => total + (Number(row.spend) || 0), 0);
-  const budgetUsed = budgetTotal ? Math.round((spendTotal / budgetTotal) * 100) : 0;
-
-  return (
-    <section className="dashboard-layout">
-      <div className="dashboard-primary">
-        <section className="grid four">
-          <Kpi label="Income" value={money(summary.income, currency)} detail="This month" tone="good" icon={ArrowUpRight} />
-          <Kpi label="Expenses" value={money(summary.expenses, currency)} detail="This month" tone={summary.expenses > summary.income ? "bad" : ""} icon={ArrowDownRight} />
-          <Kpi label="Net Cashflow" value={money(summary.netCashflow, currency)} detail="Income minus spend" tone={summary.netCashflow >= 0 ? "good" : "bad"} icon={BadgePoundSterling} />
-          <Kpi label="Available To Assign" value={money(availableToAssign, currency)} detail="Remaining" tone={availableToAssign >= 0 ? "good" : "bad"} icon={WalletCards} />
-          <Kpi label="Top Category" value={summary.topCategory || "None"} detail={money(summary.topCategorySpend || 0, currency)} icon={Tags} />
-          <Kpi label="Transactions" value={summary.transactionCount} detail="This month" icon={ListChecks} />
-          <Kpi label="Essential Spend" value={money(summary.essentialSpend, currency)} detail={`${summary.income ? Math.round((summary.essentialSpend / summary.income) * 100) : 0}% of income`} icon={ShieldCheck} />
-          <Kpi label="Warnings" value={warningCount} detail={warningCount ? "Requires attention" : "All clear"} tone={warningCount ? "bad" : "good"} icon={AlertTriangle} />
-        </section>
-
-        <section className="grid two dashboard-tables">
-          <Panel title="Category Spend" subtitle={state.selectedMonth}>
-            <Table headers={["Category", "Spend", "Budget", "% Budget"]} emptyMessage="No category activity.">
-              {visibleCategoryRows.map((row) => {
-                const percent = row.budget ? Math.round((row.spend / row.budget) * 100) : 0;
-                return (
-                  <tr key={row.category}>
-                    <td>{row.category}</td>
-                    <td className="money">{money(row.spend, currency)}</td>
-                    <td className="money">{money(row.budget, currency)}</td>
-                    <td><StatusPill tone={percent >= 100 ? "error" : percent >= 90 ? "warning" : "success"}>{percent}%</StatusPill></td>
-                  </tr>
-                );
-              })}
-            </Table>
-          </Panel>
-          <Panel title="Envelope Snapshot" subtitle="Rollover is recalculated chronologically.">
-            <Table headers={["Envelope", "Target", "Rollover", "Spending", "Available", "Status"]} emptyMessage="No envelopes for this month.">
-              {envelopeRows.slice(0, 8).map((row) => (
-                <tr key={`${row.category}-${row.subcategory}`}>
-                  <td>
-                    <strong className="table-primary">{row.subcategory}</strong>
-                    <span className="table-secondary">{row.category}</span>
-                  </td>
-                  <td className="money">{money(row.monthlyTarget, currency)}</td>
-                  <td className="money">{money(row.rolloverIn, currency)}</td>
-                  <td className="money">{money(row.spending, currency)}</td>
-                  <td className="money">{money(row.available, currency)}</td>
-                  <td><StatusPill tone={row.overdrawn ? "error" : "success"}>{row.overdrawn ? "Overdrawn" : "On Track"}</StatusPill></td>
-                </tr>
-              ))}
-            </Table>
-          </Panel>
-        </section>
-      </div>
-
-      <aside className="dashboard-aside">
-        <Panel
-          title="Warnings Summary"
-          subtitle={warningCount ? `${warningCount} item(s) need review.` : "No active warnings."}
-          action={warningCount ? <StatusPill tone="error">{warningCount}</StatusPill> : <StatusPill tone="success">Clear</StatusPill>}
-        >
-          <div className="warning-stack">
-            {warnings.slice(0, 3).map((item, index) => (
-              <article className="warning-item" key={`${item.code}-${item.entityId || index}`}>
-                <AlertTriangle aria-hidden="true" />
-                <div>
-                  <strong>{item.message}</strong>
-                  <span>{item.code}{item.entityId ? `, ${item.entityId}` : ""}</span>
-                </div>
-              </article>
-            ))}
-            {!warnings.length ? (
-              <p className="aside-muted">Your selected month has no budget or data integrity warnings.</p>
-            ) : null}
-          </div>
-        </Panel>
-
-        <Panel title="Month Health" subtitle={`${budgetUsed}% of visible budget used.`}>
-          <div className="health-meter" style={{ "--health-value": `${Math.min(budgetUsed, 100)}%` }}>
-            <strong>{budgetUsed}%</strong>
-            <span>{budgetUsed >= 100 ? "Over budget" : budgetUsed >= 90 ? "Watch closely" : "Good"}</span>
-          </div>
-          <dl className="health-list">
-            <div><dt>Budgeted</dt><dd>{money(budgetTotal, currency)}</dd></div>
-            <div><dt>Spent</dt><dd>{money(spendTotal, currency)}</dd></div>
-            <div><dt>Overdrawn</dt><dd>{overdrawnRows.length}</dd></div>
-          </dl>
-        </Panel>
-      </aside>
-    </section>
-  );
+  const categories = categoryRows.filter((row) => row.spend || row.budget).sort((a, b) => b.spend - a.spend);
+  const envelopes = [...envelopeRows].sort((a, b) => Number(b.overdrawn) - Number(a.overdrawn) || b.spending - a.spending || a.category.localeCompare(b.category) || a.subcategory.localeCompare(b.subcategory));
+  const firstUse = isFirstUse(state);
+  return <section className="dashboard-stack" aria-labelledby="dashboard-heading"><h2 id="dashboard-heading" className="sr-only" tabIndex="-1">Dashboard overview</h2>
+    {firstUse && <Panel title="Get started" subtitle="Set up the basics, then give every part of your income a job." className="getting-started"><div className="starter-actions"><Button variant="outline" onClick={() => onNavigate({ view: "accounts" })}>Review accounts</Button><Button variant="outline" onClick={() => onAddTransaction({ type: "Income" })}>Add income</Button><Button onClick={() => onNavigate({ view: "monthly" })}>Fund envelopes</Button></div></Panel>}
+    <Panel className="assignment-hero"><div className="assignment-layout"><div><span>Available to assign</span><strong>{money(availableToAssign, currency)}</strong><p>Income not yet assigned to monthly envelopes.</p></div><Button onClick={() => onNavigate({ view: "monthly" })}>Review monthly setup</Button></div></Panel>
+    <div className="cashflow-strip"><div><span>Income</span><strong>{money(summary.income, currency)}</strong></div><div><span>Expenses</span><strong>{money(summary.expenses, currency)}</strong></div><div><span>Net cashflow</span><strong>{money(summary.netCashflow, currency)}</strong></div></div>
+    <Panel title="Needs attention" subtitle={warnings.length ? `${warnings.length} item(s) need review.` : "Nothing needs your attention."}>{warnings.length ? <div className="attention-list">{warnings.slice(0, 4).map((warning, index) => { const destination = getWarningDestination(warning, state); return <article key={`${warning.code}-${warning.entityId || index}`}><AlertTriangle /><div><strong>{warning.message}</strong><p>{warning.severity === "error" ? "Fix this to keep reports accurate." : "Review when convenient."}</p></div><Button variant="outline" size="sm" onClick={() => destination ? onNavigate(destination) : onNavigate({ view: "warnings" })}>{destination?.view === "monthly" ? "Review monthly setup" : destination?.view === "transactions" ? "Review transaction" : "View warnings"}</Button></article>; })}</div> : <p className="muted-copy">Your selected month has no budget or data-integrity warnings.</p>}</Panel>
+    <Panel title="Envelopes" subtitle={`Showing ${Math.min(envelopes.length, 8)} of ${envelopes.length}`} action={<Button variant="outline" size="sm" onClick={() => onNavigate({ view: "monthly" })}>View all</Button>}><Table label="Envelope summary" headers={["Envelope", "Target", "Spending", "Available", "Status"]} emptyMessage="No envelopes are configured for this month.">{envelopes.slice(0, 8).map((row) => <tr key={`${row.category}-${row.subcategory}`}><td><strong className="table-primary">{row.subcategory}</strong><span className="table-secondary">{row.category}</span></td><td className="money">{money(row.monthlyTarget, currency)}</td><td className="money">{money(row.spending, currency)}</td><td className="money">{money(row.available, currency)}</td><td><StatusPill tone={row.overdrawn ? "error" : "success"}>{row.overdrawn ? "Overdrawn" : "Available"}</StatusPill></td></tr>)}</Table></Panel>
+    <Panel title="Category spending" subtitle="Compared with category default budgets.">{categories.length ? <Table label="Category budget usage" headers={["Category", "Spent", "Budget", "Usage"]}>{categories.map((row) => { const usage = getBudgetUsage(row.budget, row.spend); return <tr key={row.category}><td>{row.category}</td><td className="money">{money(row.spend, currency)}</td><td className="money">{money(row.budget, currency)}</td><td><StatusPill tone={usage.tone}>{usage.percent === null ? usage.label : `${usage.percent}% · ${usage.label}`}</StatusPill></td></tr>; })}</Table> : <EmptyState title="No category spending" message="Add a transaction to see category budget usage." action={<Button onClick={() => onAddTransaction({ type: "Expense" })}>Add transaction</Button>} />}</Panel>
+    <Collapsible><Panel title="More month details" action={<CollapsibleTrigger asChild><Button variant="ghost" size="sm">Show details<ChevronDown data-icon="inline-end" /></Button></CollapsibleTrigger>}><CollapsibleContent><dl className="detail-grid"><div><dt>Top category</dt><dd>{summary.topCategory || "None"}</dd></div><div><dt>Top category spend</dt><dd>{money(summary.topCategorySpend || 0, currency)}</dd></div><div><dt>Transactions</dt><dd>{summary.transactionCount || 0}</dd></div><div><dt>Essential spend</dt><dd>{money(summary.essentialSpend || 0, currency)}</dd></div></dl></CollapsibleContent></Panel></Collapsible>
+  </section>;
 }

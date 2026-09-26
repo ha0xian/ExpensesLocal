@@ -1,50 +1,19 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { EditableField } from "../components/EditableField.jsx";
+import { SaveStatus } from "../components/SaveStatus.jsx";
 import { Field, Panel, Table } from "../components/ui.jsx";
 import { money } from "../lib/app-helpers.js";
 
-const accountTypes = ["Bank", "Credit Card", "Cash"];
-
-export function AccountsView({
-  state,
-  accountBalances,
-  onAddAccount,
-  onUpdateAccount,
-  onDeleteAccount
-}) {
-  const [form, setForm] = useState({ name: "", type: "Bank", openingBalance: "0", notes: "" });
+const TYPES = ["Bank", "Credit Card", "Cash"];
+const EMPTY = { name: "", type: "Bank", openingBalance: "0", notes: "" };
+export function AccountsView({ state, accountBalances, onAddAccount, onUpdateAccount, onDeleteAccount, onDirtyChange, disabled }) {
+  const [form, setForm] = useState(EMPTY); const [status, setStatus] = useState("idle"); const [message, setMessage] = useState(""); const fieldDirty = useRef(new Set());
+  const formDirty = JSON.stringify(form) !== JSON.stringify(EMPTY);
+  const reportDirty = (key) => (dirty) => { if (dirty) fieldDirty.current.add(key); else fieldDirty.current.delete(key); onDirtyChange(formDirty || fieldDirty.current.size > 0); };
+  useEffect(() => { onDirtyChange(formDirty || fieldDirty.current.size > 0); return () => onDirtyChange(false); }, [formDirty, onDirtyChange]);
   const balances = new Map(accountBalances.map((item) => [item.account, item]));
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    if (onAddAccount(form)) {
-      setForm({ name: "", type: "Bank", openingBalance: "0", notes: "" });
-    }
-  }
-
-  return (
-    <>
-      <Panel title="Add Account">
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <Field label="Name" className="wide"><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></Field>
-          <Field label="Type"><select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{accountTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
-          <Field label="Opening Balance"><input type="number" value={form.openingBalance} onChange={(event) => setForm({ ...form, openingBalance: event.target.value })} /></Field>
-          <Field label="Notes" className="wide"><input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></Field>
-          <div className="actions"><button className="primary" type="submit">Add Account</button></div>
-        </form>
-      </Panel>
-      <Panel title="Accounts" subtitle="Balances are calculated from opening balance plus transactions.">
-        <Table headers={["Name", "Type", "Opening Balance", "Current Balance", ""]}>
-          {state.accounts.map((item) => (
-            <tr key={item.id}>
-              <td><input value={item.name} onChange={(event) => onUpdateAccount(item.id, "name", event.target.value)} /></td>
-              <td><select value={item.type} onChange={(event) => onUpdateAccount(item.id, "type", event.target.value)}>{accountTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></td>
-              <td><input type="number" value={item.openingBalance} onChange={(event) => onUpdateAccount(item.id, "openingBalance", event.target.value)} /></td>
-              <td className="money">{money(balances.get(item.name)?.currentBalance || 0, state.currency)}</td>
-              <td><button className="danger" type="button" onClick={() => onDeleteAccount(item.id)}>Delete</button></td>
-            </tr>
-          ))}
-        </Table>
-      </Panel>
-    </>
-  );
+  async function submit(event) { event.preventDefault(); setStatus("saving"); setMessage(""); try { await onAddAccount(form); setForm(EMPTY); setStatus("saved"); } catch (reason) { setMessage(reason.message); setStatus("error"); } }
+  return <section aria-labelledby="accounts-heading"><h2 id="accounts-heading" className="sr-only" tabIndex="-1">Accounts</h2><Panel title="Add account" subtitle="The form clears only after the account is saved."><form className="form-grid" onSubmit={submit}><Field label="Name" className="wide"><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></Field><Field label="Type"><select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{TYPES.map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Opening balance"><Input type="number" step="0.01" value={form.openingBalance} onChange={(event) => setForm({ ...form, openingBalance: event.target.value })} /></Field><Field label="Notes" className="wide"><Input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></Field><div className="actions"><Button type="submit" disabled={disabled || status === "saving"}>Add account</Button></div><SaveStatus status={status} message={message} onDismiss={() => setStatus("idle")} /></form></Panel><Panel title="Accounts" subtitle="Edit one field at a time. Balances include the opening balance and saved transactions."><Table label="Accounts" headers={["Name", "Type", "Opening balance", "Current balance", "Notes", ""]}>{state.accounts.map((item) => <tr key={item.id}><td><EditableField label={`${item.name} name`} value={item.name} onSave={(value) => onUpdateAccount(item.id, "name", value)} onDirtyChange={reportDirty(`${item.id}-name`)} disabled={disabled} renderInput={(props) => <Input {...props} />} /></td><td><EditableField label={`${item.name} type`} value={item.type} onSave={(value) => onUpdateAccount(item.id, "type", value)} onDirtyChange={reportDirty(`${item.id}-type`)} disabled={disabled} renderInput={({ value, onChange, ...props }) => <select value={value} onChange={(event) => onChange(event.target.value)} {...props}>{TYPES.map((type) => <option key={type}>{type}</option>)}</select>} /></td><td><EditableField label={`${item.name} opening balance`} value={item.openingBalance} onSave={(value) => onUpdateAccount(item.id, "openingBalance", value)} onDirtyChange={reportDirty(`${item.id}-opening`)} disabled={disabled} renderInput={(props) => <Input type="number" step="0.01" {...props} />} /></td><td className="money">{money(balances.get(item.name)?.currentBalance || 0, state.currency)}</td><td><EditableField label={`${item.name} notes`} value={item.notes || ""} onSave={(value) => onUpdateAccount(item.id, "notes", value)} onDirtyChange={reportDirty(`${item.id}-notes`)} disabled={disabled} renderInput={(props) => <Input {...props} />} /></td><td><Button variant="ghost" size="sm" onClick={() => onDeleteAccount(item.id)}>Delete</Button></td></tr>)}</Table></Panel></section>;
 }

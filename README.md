@@ -76,6 +76,12 @@ npm run build
 npm run preview
 ```
 
+Run the focused frontend presentation tests with:
+
+```bash
+npm run test:frontend
+```
+
 A production deployment would need the FastAPI backend to serve the built `dist/` folder or have a reverse proxy handle both.
 
 ### Convenience Scripts
@@ -89,7 +95,8 @@ npm run dev:backend    # Start FastAPI with auto-reload
 
 - With `DATABASE_URL` set, the backend stores app state in PostgreSQL.
 - Without `DATABASE_URL`, the backend stores app state in `backend/data/expense-data.csv` (created automatically on first request).
-- Use **Import CSV** to replace server state from a local CSV file.
+- Use **Restore backup** to replace the complete server state from an Envelope CSV backup. The app asks for confirmation before replacing data.
+- Use **Bank Import** to map and append transactions from a bank CSV. Its preview must succeed before rows can be added.
 - Use **Export CSV** to download the current server state.
 - Changes from any CRUD operation are saved to the selected backend automatically.
 - Automatic transaction rules generate due rows when state is loaded (startup automation).
@@ -110,10 +117,12 @@ python -m pytest
 ## Features
 
 - Dashboard KPIs for income, expenses, net cashflow, available to assign, category spend, envelope snapshots, and warnings.
-- Transaction add/edit/delete with category-filtered subcategories.
+- Transaction add/edit/delete in a shared editor. Edits are validated and saved atomically, while the ledger can be searched and filtered by category, account, and selected/all months.
 - Optional automatic recurring rules from the transaction form, with preset or custom recurrence options.
 - Month-specific envelope funding, starting balances, and rollover tracking.
 - Available To Assign calculated as selected-month income minus selected-month envelope funding.
 - Category, subcategory, and account management.
 - Generic bank CSV import with column mapping, preview, and transaction creation.
 - Non-blocking status warnings for over-assigned months, overdrawn envelopes, invalid transactions, and missing references.
+
+Category budgets and monthly envelope setup use explicit batch saves. If a request fails, the unsaved draft remains available for correction or retry; changes are not reported as saved until the backend confirms them.

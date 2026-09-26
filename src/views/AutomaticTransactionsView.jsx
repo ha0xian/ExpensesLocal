@@ -1,147 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { EditableField } from "../components/EditableField.jsx";
+import { SaveStatus } from "../components/SaveStatus.jsx";
 import { Field, Panel, Table } from "../components/ui.jsx";
 import { subcategoriesFor } from "../lib/app-helpers.js";
 
-const TRANSACTION_TYPES = ["Expense", "Income", "Transfer"];
-const FALLBACK_PRESETS = ["Weekly", "Biweekly", "Monthly", "Quarterly", "Yearly", "Custom"];
-const FALLBACK_UNITS = ["Days", "Weeks", "Months", "Years"];
-
-export function AutomaticTransactionsView({
-  state,
-  config,
-  onAddAutomaticTransaction,
-  onUpdateAutomaticTransaction,
-  onDeleteAutomaticTransaction
-}) {
-  const recurrencePresets = config?.recurrencePresets || FALLBACK_PRESETS;
-  const recurrenceUnits = config?.recurrenceUnits || FALLBACK_UNITS;
-
-  const firstCategory = state.categories[0]?.name || "";
-  const [form, setForm] = useState({
-    enabled: true,
-    startDate: "",
-    endDate: "",
-    frequency: "Monthly",
-    customInterval: "1",
-    customUnit: "Months",
-    type: "Expense",
-    category: firstCategory,
-    subcategory: subcategoriesFor(state, firstCategory)[0]?.name || "",
-    account: state.accounts[0]?.name || "",
-    amount: "",
-    merchantPayee: "",
-    description: "",
-    essential: false,
-    reimbursable: false,
-    notes: ""
-  });
-
-  const addSubcategories = subcategoriesFor(state, form.category);
-
-  function updateForm(name, value) {
-    setForm((previous) => {
-      const next = { ...previous, [name]: value };
-      if (name === "category") {
-        next.subcategory = subcategoriesFor(state, value)[0]?.name || "";
-      }
-      return next;
-    });
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    const success = await onAddAutomaticTransaction(form);
-    if (success) {
-      setForm((previous) => ({
-        ...previous,
-        startDate: "",
-        endDate: "",
-        amount: "",
-        merchantPayee: "",
-        description: "",
-        essential: false,
-        reimbursable: false,
-        notes: ""
-      }));
-    }
-  }
-
-  return (
-    <>
-      <Panel title="Add Automatic Transaction" subtitle="Create recurring transaction rules that generate due rows when the app opens.">
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label className="check-field"><input name="enabled" type="checkbox" checked={form.enabled} onChange={(event) => updateForm("enabled", event.target.checked)} /><span>Enabled</span></label>
-          <Field label="Start Date"><input name="startDate" type="date" value={form.startDate} onChange={(event) => updateForm("startDate", event.target.value)} /></Field>
-          <Field label="End Date"><input name="endDate" type="date" value={form.endDate} onChange={(event) => updateForm("endDate", event.target.value)} /></Field>
-          <Field label="Frequency">
-            <select name="frequency" value={form.frequency} onChange={(event) => updateForm("frequency", event.target.value)}>
-              {recurrencePresets.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </Field>
-          {form.frequency === "Custom" ? (
-            <>
-              <Field label="Every"><input name="customInterval" type="number" min="1" value={form.customInterval} onChange={(event) => updateForm("customInterval", event.target.value)} /></Field>
-              <Field label="Unit">
-                <select name="customUnit" value={form.customUnit} onChange={(event) => updateForm("customUnit", event.target.value)}>
-                  {recurrenceUnits.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </Field>
-            </>
-          ) : null}
-          <Field label="Type">
-            <select name="type" value={form.type} onChange={(event) => updateForm("type", event.target.value)}>
-              {TRANSACTION_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </Field>
-          <Field label="Category">
-            <select name="category" value={form.category} onChange={(event) => updateForm("category", event.target.value)}>
-              {state.categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Subcategory">
-            <select name="subcategory" value={form.subcategory} onChange={(event) => updateForm("subcategory", event.target.value)}>
-              {addSubcategories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Account">
-            <select name="account" value={form.account} onChange={(event) => updateForm("account", event.target.value)}>
-              {state.accounts.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Amount"><input name="amount" type="number" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} /></Field>
-          <Field label="Merchant/Payee" className="wide"><input name="merchantPayee" value={form.merchantPayee} onChange={(event) => updateForm("merchantPayee", event.target.value)} /></Field>
-          <Field label="Description" className="wide"><input name="description" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
-          <label className="check-field"><input name="essential" type="checkbox" checked={form.essential} onChange={(event) => updateForm("essential", event.target.checked)} /><span>Essential</span></label>
-          <label className="check-field"><input name="reimbursable" type="checkbox" checked={form.reimbursable} onChange={(event) => updateForm("reimbursable", event.target.checked)} /><span>Reimbursable</span></label>
-          <Field label="Notes" className="wide"><input name="notes" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} /></Field>
-          <div className="actions"><button className="primary" type="submit">Add Automatic Transaction</button></div>
-        </form>
-      </Panel>
-      <Panel title="Automatic Transactions" subtitle="Disable a rule to keep it saved without generating future transactions.">
-        <Table headers={["On", "Start", "End", "Frequency", "Custom", "Type", "Category", "Subcategory", "Account", "Merchant", "Amount", ""]}>
-          {(state.automaticTransactions || []).map((item) => (
-            <tr key={item.id}>
-              <td><input type="checkbox" checked={item.enabled} onChange={(event) => onUpdateAutomaticTransaction(item.id, "enabled", event.target.checked)} /></td>
-              <td><input type="date" value={item.startDate} onChange={(event) => onUpdateAutomaticTransaction(item.id, "startDate", event.target.value)} /></td>
-              <td><input type="date" value={item.endDate || ""} onChange={(event) => onUpdateAutomaticTransaction(item.id, "endDate", event.target.value)} /></td>
-              <td><select value={item.frequency} onChange={(event) => onUpdateAutomaticTransaction(item.id, "frequency", event.target.value)}>{recurrencePresets.map((frequency) => <option key={frequency} value={frequency}>{frequency}</option>)}</select></td>
-              <td>
-                <div className="inline-fields">
-                  <input type="number" min="1" value={item.customInterval} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customInterval", event.target.value)} />
-                  <select value={item.customUnit} disabled={item.frequency !== "Custom"} onChange={(event) => onUpdateAutomaticTransaction(item.id, "customUnit", event.target.value)}>{recurrenceUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select>
-                </div>
-              </td>
-              <td><select value={item.type} onChange={(event) => onUpdateAutomaticTransaction(item.id, "type", event.target.value)}>{TRANSACTION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></td>
-              <td><select value={item.category} onChange={(event) => onUpdateAutomaticTransaction(item.id, "category", event.target.value)}>{state.categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></td>
-              <td><select value={item.subcategory} onChange={(event) => onUpdateAutomaticTransaction(item.id, "subcategory", event.target.value)}>{subcategoriesFor(state, item.category).map((subcategory) => <option key={subcategory.id} value={subcategory.name}>{subcategory.name}</option>)}</select></td>
-              <td><select value={item.account} onChange={(event) => onUpdateAutomaticTransaction(item.id, "account", event.target.value)}>{state.accounts.map((account) => <option key={account.id} value={account.name}>{account.name}</option>)}</select></td>
-              <td><input value={item.merchantPayee || ""} onChange={(event) => onUpdateAutomaticTransaction(item.id, "merchantPayee", event.target.value)} /></td>
-              <td><input type="number" value={item.amount} onChange={(event) => onUpdateAutomaticTransaction(item.id, "amount", event.target.value)} /></td>
-              <td><button className="danger" type="button" onClick={() => onDeleteAutomaticTransaction(item.id)}>Delete</button></td>
-            </tr>
-          ))}
-        </Table>
-      </Panel>
-    </>
-  );
+const TYPES = ["Expense", "Income", "Transfer"];
+export function AutomaticTransactionsView({ state, config, onAddAutomaticTransaction, onUpdateAutomaticTransaction, onDeleteAutomaticTransaction, onDirtyChange, disabled }) {
+  const presets = config?.recurrencePresets || ["Weekly", "Biweekly", "Monthly", "Quarterly", "Yearly", "Custom"]; const units = config?.recurrenceUnits || ["Days", "Weeks", "Months", "Years"]; const firstCategory = state.categories[0]?.name || "";
+  const empty = { enabled: true, startDate: "", endDate: "", frequency: "Monthly", customInterval: "1", customUnit: "Months", type: "Expense", category: firstCategory, subcategory: subcategoriesFor(state, firstCategory)[0]?.name || "", account: state.accounts[0]?.name || "", amount: "", merchantPayee: "", description: "", essential: false, reimbursable: false, notes: "" };
+  const [form, setForm] = useState(empty); const [status, setStatus] = useState("idle"); const [message, setMessage] = useState(""); const formDirty = JSON.stringify(form) !== JSON.stringify(empty);
+  useEffect(() => { onDirtyChange?.(formDirty); return () => onDirtyChange?.(false); }, [formDirty, onDirtyChange]);
+  function update(name, value) { setForm((previous) => ({ ...previous, [name]: value, ...(name === "category" ? { subcategory: subcategoriesFor(state, value)[0]?.name || "" } : {}) })); }
+  async function submit(event) { event.preventDefault(); setStatus("saving"); setMessage(""); try { await onAddAutomaticTransaction(form); setForm(empty); setStatus("saved"); } catch (reason) { setMessage(reason.message); setStatus("error"); } }
+  const text = (props) => <Input {...props} />; const select = (options) => ({ value, onChange, ...props }) => <select value={value} onChange={(event) => onChange(event.target.value)} {...props}>{options.map((item) => <option key={item}>{item}</option>)}</select>;
+  return <section aria-labelledby="automatic-heading"><h2 id="automatic-heading" className="sr-only" tabIndex="-1">Automatic transactions</h2><Panel title="Add automatic transaction" subtitle="Create a rule that generates due transactions when the app opens."><form className="form-grid" onSubmit={submit}><label className="check-field"><input type="checkbox" checked={form.enabled} onChange={(event) => update("enabled", event.target.checked)} />Enabled</label><Field label="Start date"><Input type="date" value={form.startDate} onChange={(event) => update("startDate", event.target.value)} required /></Field><Field label="End date"><Input type="date" value={form.endDate} onChange={(event) => update("endDate", event.target.value)} /></Field><Field label="Frequency"><select value={form.frequency} onChange={(event) => update("frequency", event.target.value)}>{presets.map((item) => <option key={item}>{item}</option>)}</select></Field>{form.frequency === "Custom" && <><Field label="Every"><Input type="number" min="1" value={form.customInterval} onChange={(event) => update("customInterval", event.target.value)} /></Field><Field label="Unit"><select value={form.customUnit} onChange={(event) => update("customUnit", event.target.value)}>{units.map((item) => <option key={item}>{item}</option>)}</select></Field></>}<Field label="Type"><select value={form.type} onChange={(event) => update("type", event.target.value)}>{TYPES.map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Category"><select value={form.category} onChange={(event) => update("category", event.target.value)}>{state.categories.map((item) => <option key={item.id}>{item.name}</option>)}</select></Field><Field label="Subcategory"><select value={form.subcategory} onChange={(event) => update("subcategory", event.target.value)}>{subcategoriesFor(state, form.category).map((item) => <option key={item.id}>{item.name}</option>)}</select></Field><Field label="Account"><select value={form.account} onChange={(event) => update("account", event.target.value)}>{state.accounts.map((item) => <option key={item.id}>{item.name}</option>)}</select></Field><Field label="Amount"><Input type="number" step="0.01" value={form.amount} onChange={(event) => update("amount", event.target.value)} required /></Field><Field label="Merchant/Payee" className="wide"><Input value={form.merchantPayee} onChange={(event) => update("merchantPayee", event.target.value)} /></Field><Field label="Description" className="wide"><Input value={form.description} onChange={(event) => update("description", event.target.value)} /></Field><label className="check-field"><input type="checkbox" checked={form.essential} onChange={(event) => update("essential", event.target.checked)} />Essential</label><label className="check-field"><input type="checkbox" checked={form.reimbursable} onChange={(event) => update("reimbursable", event.target.checked)} />Reimbursable</label><Field label="Notes" className="wide"><Input value={form.notes} onChange={(event) => update("notes", event.target.value)} /></Field><div className="actions"><Button type="submit" disabled={disabled || status === "saving"}>Add automatic transaction</Button></div><SaveStatus status={status} message={message} onDismiss={() => setStatus("idle")} /></form></Panel><Panel title="Automatic transactions" subtitle="Each field requires Edit, then Save. Typing alone never changes a rule."><Table label="Automatic transactions" headers={["On", "Start", "Frequency", "Type", "Category", "Account", "Amount", ""]}>{state.automaticTransactions.map((item) => <tr key={item.id}><td><EditableField label="Enabled" value={item.enabled ? "Yes" : "No"} renderInput={select(["Yes", "No"])} onSave={(value) => onUpdateAutomaticTransaction(item.id, "enabled", value === "Yes")} disabled={disabled} /></td><td><EditableField label="Start date" value={item.startDate} renderInput={({ value, onChange, ...props }) => <Input type="date" value={value} onChange={onChange} {...props} />} onSave={(value) => onUpdateAutomaticTransaction(item.id, "startDate", value)} disabled={disabled} /></td><td><EditableField label="Frequency" value={item.frequency} renderInput={select(presets)} onSave={(value) => onUpdateAutomaticTransaction(item.id, "frequency", value)} disabled={disabled} /></td><td><EditableField label="Type" value={item.type} renderInput={select(TYPES)} onSave={(value) => onUpdateAutomaticTransaction(item.id, "type", value)} disabled={disabled} /></td><td><EditableField label="Category" value={item.category} renderInput={select(state.categories.map((category) => category.name))} onSave={(value) => onUpdateAutomaticTransaction(item.id, "category", value)} disabled={disabled} /></td><td><EditableField label="Account" value={item.account} renderInput={select(state.accounts.map((account) => account.name))} onSave={(value) => onUpdateAutomaticTransaction(item.id, "account", value)} disabled={disabled} /></td><td><EditableField label="Amount" value={item.amount} renderInput={({ value, onChange, ...props }) => <Input type="number" step="0.01" value={value} onChange={onChange} {...props} />} onSave={(value) => onUpdateAutomaticTransaction(item.id, "amount", value)} disabled={disabled} /></td><td><Button variant="ghost" size="sm" onClick={() => onDeleteAutomaticTransaction(item.id)}>Delete</Button></td></tr>)}</Table></Panel></section>;
 }

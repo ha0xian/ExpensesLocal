@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "./components/AppShell.jsx";
+import { ConfirmDialog } from "./components/ConfirmDialog.jsx";
+import { SaveStatus } from "./components/SaveStatus.jsx";
 import { Tabs } from "./components/Tabs.jsx";
 import { TopBar } from "./components/TopBar.jsx";
+import { TransactionEditor } from "./components/TransactionEditor.jsx";
 import { useExpenseState } from "./hooks/useExpenseState.js";
 import * as api from "./lib/api-client.js";
+import { getWarningDestination } from "./lib/presentation.js";
 import { AccountsView } from "./views/AccountsView.jsx";
 import { AutomaticTransactionsView } from "./views/AutomaticTransactionsView.jsx";
 import { BankImportView } from "./views/BankImportView.jsx";
@@ -13,418 +17,86 @@ import { MonthlySetupView } from "./views/MonthlySetupView.jsx";
 import { TransactionsView } from "./views/TransactionsView.jsx";
 import { WarningsView } from "./views/WarningsView.jsx";
 
-const VIEW_TITLES = {
-  dashboard: "Dashboard",
-  transactions: "Transactions",
-  automatic: "Automatic",
-  monthly: "Monthly Setup",
-  categories: "Categories",
-  accounts: "Accounts",
-  import: "Bank Import",
-  warnings: "Warnings",
-};
+const VIEW_TITLES = { dashboard: "Dashboard", transactions: "Transactions", automatic: "Automatic", monthly: "Monthly Setup", categories: "Categories", accounts: "Accounts", import: "Bank Import", warnings: "Warnings" };
+const EMPTY_BANK_IMPORT = { filename: "", csvText: "", headers: [], rows: [], mapping: {}, previewRows: [], status: "idle", error: "", requestId: 0 };
 
 export default function App({ session, onSignOut }) {
-  const {
-    state, derived, config, automationStatus,
-    dataFileName, loading, error, refresh, mutate
-  } = useExpenseState();
-
+  const { state, derived, config, loading, error, mutationStatus, isMutating, clearError, refresh, mutate } = useExpenseState();
   const [currentView, setCurrentView] = useState("dashboard");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [bankImport, setBankImport] = useState({ headers: [], rows: [], mapping: {}, previewRows: [] });
+  const [dirtyVersion, setDirtyVersion] = useState(0);
+  const dirtyOwners = useRef(new Map());
+  const [discardAction, setDiscardAction] = useState(null);
+  const [editor, setEditor] = useState({ open: false, transaction: null, initialType: undefined, returnFocusId: "add-transaction" });
+  const [transactionIntent, setTransactionIntent] = useState(null);
+  const [monthlyIntent, setMonthlyIntent] = useState(null);
+  const [pendingBackup, setPendingBackup] = useState(null);
+  const [bankImport, setBankImport] = useState(EMPTY_BANK_IMPORT);
+  const previewRequest = useRef(0);
+  const hasUnsavedChanges = dirtyOwners.current.size > 0;
 
-  // -----------------------------------------------------------------------
-  // Derived convenience getters
-  // -----------------------------------------------------------------------
+  const setDirty = useCallback((owner, dirty) => {
+    const wasDirty = dirtyOwners.current.has(owner);
+    if (dirty === wasDirty) return;
+    if (dirty) dirtyOwners.current.set(owner, true);
+    else dirtyOwners.current.delete(owner);
+    setDirtyVersion((value) => value + 1);
+  }, []);
+  const dirtyHandler = useCallback((owner) => (dirty) => setDirty(owner, dirty), [setDirty]);
+  const sharedDirty = useMemo(() => dirtyHandler(currentView), [currentView, dirtyHandler]);
+  const editorDirty = useMemo(() => dirtyHandler("transaction-editor"), [dirtyHandler]);
+  const runGuarded = useCallback((action) => { if (hasUnsavedChanges) setDiscardAction(() => action); else action(); }, [hasUnsavedChanges, dirtyVersion]);
+  const focusWorkspace = useCallback(() => requestAnimationFrame(() => document.querySelector("#app h2, #app h1, #app")?.focus()), []);
+  const changeView = useCallback((view, intent = null) => runGuarded(() => { dirtyOwners.current.clear(); setCurrentView(view); setTransactionIntent(view === "transactions" ? intent : null); setMonthlyIntent(view === "monthly" ? intent : null); focusWorkspace(); }), [focusWorkspace, runGuarded]);
+
+  useEffect(() => { if (!hasUnsavedChanges) return undefined; const warn = (event) => { event.preventDefault(); event.returnValue = ""; }; window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn); }, [hasUnsavedChanges, dirtyVersion]);
 
   const selectedMonth = state?.selectedMonth || "";
-  const months = config?.months || [];
   const summary = derived?.summary || {};
-  const categoryRows = derived?.categoryRows || [];
-  const availableToAssign = derived?.availableToAssign ?? 0;
-  const envelopeRows = derived?.envelopeRows || [];
-  const accountBalances = derived?.accountBalances || [];
   const warnings = derived?.warnings || [];
+  const openEditor = useCallback(({ transaction = null, type, triggerId = "add-transaction" } = {}) => setEditor({ open: true, transaction, initialType: type, returnFocusId: triggerId }), []);
+  const closeEditor = useCallback(() => runGuarded(() => { dirtyOwners.current.delete("transaction-editor"); setEditor((value) => ({ ...value, open: false })); requestAnimationFrame(() => document.getElementById(editor.returnFocusId)?.focus()); }), [editor.returnFocusId, runGuarded]);
 
-  // -----------------------------------------------------------------------
-  // Month
-  // -----------------------------------------------------------------------
+  const handleMonthChange = useCallback((month) => runGuarded(async () => { await mutate(() => api.updateSelectedMonth(month)); dirtyOwners.current.clear(); }), [mutate, runGuarded]);
+  const handleSignOut = useCallback(() => runGuarded(() => onSignOut()), [onSignOut, runGuarded]);
+  const handleSaveTransaction = useCallback(async (form) => {
+    const snapshot = editor.transaction
+      ? await mutate(() => api.updateTransactionFields(editor.transaction.id, { date: form.date, type: form.type, category: form.category, subcategory: form.subcategory, account: form.account, amount: form.amount, merchantPayee: form.merchantPayee, description: form.description, notes: form.notes }))
+      : await mutate(() => api.createTransaction(form));
+    const saved = editor.transaction || snapshot.state.transactions[0];
+    dirtyOwners.current.delete("transaction-editor");
+    setEditor((value) => ({ ...value, open: false }));
+    if (saved?.month !== snapshot.state.selectedMonth) setTransactionIntent({ allMonths: true, transactionId: saved.id, savedOutsideMonth: true });
+    requestAnimationFrame(() => document.getElementById(saved?.id ? `transaction-${saved.id}` : editor.returnFocusId)?.focus());
+    return snapshot;
+  }, [editor, mutate]);
 
-  const confirmDiscardChanges = useCallback(() => (
-    !hasUnsavedChanges || window.confirm("You have unsaved changes. Leave without saving them?")
-  ), [hasUnsavedChanges]);
+  const selectBackup = useCallback(() => { const input = document.createElement("input"); input.type = "file"; input.accept = ".csv,text/csv"; input.onchange = async (event) => { const file = event.target.files?.[0]; if (file) setPendingBackup({ name: file.name, csvText: await file.text() }); }; input.click(); }, []);
+  const restoreBackup = useCallback(async () => { await mutate(() => api.importCsv(pendingBackup.csvText)); setPendingBackup(null); dirtyOwners.current.clear(); }, [mutate, pendingBackup]);
+  const downloadBackup = useCallback(() => api.exportCsv(), []);
 
-  const handleViewChange = useCallback((view) => {
-    if (view === currentView || !confirmDiscardChanges()) return;
-    setHasUnsavedChanges(false);
-    setCurrentView(view);
-  }, [confirmDiscardChanges, currentView]);
+  const loadBankCsv = useCallback(async (file) => { if (!file) return; const csvText = await file.text(); const id = ++previewRequest.current; setBankImport({ ...EMPTY_BANK_IMPORT, filename: file.name, csvText, status: "loading", requestId: id }); try { const result = await api.bankImportPreview(csvText, null); if (previewRequest.current === id) setBankImport({ filename: file.name, csvText, ...result, status: "ready", error: "", requestId: id }); } catch (reason) { if (previewRequest.current === id) setBankImport((value) => ({ ...value, status: "error", error: reason.message })); } }, []);
+  const updateMapping = useCallback(async (name, value) => { const id = ++previewRequest.current; const mapping = { ...bankImport.mapping, [name]: value }; setBankImport((previous) => ({ ...previous, mapping, status: "loading", error: "", requestId: id })); try { const result = await api.bankImportPreview(bankImport.csvText, mapping); if (previewRequest.current === id) setBankImport((previous) => ({ ...previous, ...result, mapping, status: "ready", error: "", requestId: id })); } catch (reason) { if (previewRequest.current === id) setBankImport((previous) => ({ ...previous, status: "error", error: reason.message })); } }, [bankImport.csvText, bankImport.mapping]);
+  const applyBankImport = useCallback(async () => { await mutate(() => api.bankImportApply(bankImport.rows, bankImport.mapping)); setBankImport(EMPTY_BANK_IMPORT); changeView("transactions"); }, [bankImport, changeView, mutate]);
 
-  useEffect(() => {
-    if (!hasUnsavedChanges) return undefined;
-    const warnBeforeUnload = (event) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [hasUnsavedChanges]);
-
-  const handleMonthChange = useCallback((month) => {
-    if (!confirmDiscardChanges()) return;
-    setHasUnsavedChanges(false);
-    mutate(() => api.updateSelectedMonth(month));
-  }, [confirmDiscardChanges, mutate]);
-
-  // -----------------------------------------------------------------------
-  // CSV import / export
-  // -----------------------------------------------------------------------
-
-  const handleImportCsv = useCallback(async () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".csv,text/csv";
-    input.onchange = async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      try {
-        const csvText = await file.text();
-        await mutate(() => api.importCsv(csvText));
-      } catch (err) {
-        alert(err.message || "Import failed.");
-      }
-    };
-    input.click();
-  }, [mutate]);
-
-  const handleExportCsv = useCallback(async () => {
-    try {
-      await api.exportCsv();
-    } catch (err) {
-      alert(err.message || "Export failed.");
-    }
-  }, []);
-
-  // -----------------------------------------------------------------------
-  // Transactions
-  // -----------------------------------------------------------------------
-
-  const handleAddTransaction = useCallback(async (form) => {
-    try {
-      await mutate(() => api.createTransaction(form));
-      return true;
-    } catch (err) {
-      alert(err.message || "Failed to add transaction.");
-      return false;
-    }
-  }, [mutate]);
-
-  const handleUpdateTransaction = useCallback((id, field, value) => {
-    mutate(() => api.updateTransaction(id, field, value));
-  }, [mutate]);
-
-  const handleDeleteTransaction = useCallback((id) => {
-    mutate(() => api.deleteTransaction(id));
-  }, [mutate]);
-
-  // -----------------------------------------------------------------------
-  // Automatic transactions
-  // -----------------------------------------------------------------------
-
-  const handleAddAutomaticTransaction = useCallback(async (form) => {
-    try {
-      await mutate(() => api.createAutomaticTransaction(form));
-      return true;
-    } catch (err) {
-      alert(err.message || "Failed to add automatic transaction.");
-      return false;
-    }
-  }, [mutate]);
-
-  const handleUpdateAutomaticTransaction = useCallback((id, field, value) => {
-    mutate(() => api.updateAutomaticTransaction(id, field, value));
-  }, [mutate]);
-
-  const handleDeleteAutomaticTransaction = useCallback((id) => {
-    mutate(() => api.deleteAutomaticTransaction(id));
-  }, [mutate]);
-
-  // -----------------------------------------------------------------------
-  // Categories / subcategories
-  // -----------------------------------------------------------------------
-
-  const handleAddCategory = useCallback(async (form) => {
-    try {
-      await mutate(() => api.createCategory(form));
-      return true;
-    } catch (err) {
-      alert(err.message || "Failed to add category.");
-      return false;
-    }
-  }, [mutate]);
-
-  const handleUpdateCategory = useCallback((id, field, value) => {
-    return mutate(() => api.updateCategory(id, field, value));
-  }, [mutate]);
-
-  const handleDeleteCategory = useCallback((id) => {
-    mutate(() => api.deleteCategory(id));
-  }, [mutate]);
-
-  const handleAddSubcategory = useCallback(async (form) => {
-    try {
-      await mutate(() => api.createSubcategory(form));
-      return true;
-    } catch (err) {
-      alert(err.message || "Failed to add subcategory.");
-      return false;
-    }
-  }, [mutate]);
-
-  const handleUpdateSubcategory = useCallback((id, field, value) => {
-    return mutate(() => api.updateSubcategory(id, field, value));
-  }, [mutate]);
-
-  const handleDeleteSubcategory = useCallback((id) => {
-    mutate(() => api.deleteSubcategory(id));
-  }, [mutate]);
-
-  // -----------------------------------------------------------------------
-  // Accounts
-  // -----------------------------------------------------------------------
-
-  const handleAddAccount = useCallback(async (form) => {
-    try {
-      await mutate(() => api.createAccount(form));
-      return true;
-    } catch (err) {
-      alert(err.message || "Failed to add account.");
-      return false;
-    }
-  }, [mutate]);
-
-  const handleUpdateAccount = useCallback((id, field, value) => {
-    mutate(() => api.updateAccount(id, field, value));
-  }, [mutate]);
-
-  const handleDeleteAccount = useCallback((id) => {
-    mutate(() => api.deleteAccount(id));
-  }, [mutate]);
-
-  // -----------------------------------------------------------------------
-  // Monthly setup
-  // -----------------------------------------------------------------------
-
-  const handleSaveMonthlySetup = useCallback(async (updates) => {
-    try {
-      await mutate(() => api.updateMonthlySetupBatch(updates));
-      setHasUnsavedChanges(false);
-      return true;
-    } catch (err) {
-      alert(err.message || "Failed to save Monthly Setup.");
-      return false;
-    }
-  }, [mutate]);
-
-  const handleFillMissingMonthlySetup = useCallback(() => {
-    mutate(() => api.fillMissingMonthlySetup());
-  }, [mutate]);
-
-  // -----------------------------------------------------------------------
-  // Bank import
-  // -----------------------------------------------------------------------
-
-  const handleLoadBankCsv = useCallback(async (file) => {
-    if (!file) return;
-    try {
-      const csvText = await file.text();
-      const result = await api.bankImportPreview(csvText, null);
-      setBankImport({
-        headers: result.headers,
-        rows: result.rows,
-        mapping: result.mapping,
-        previewRows: result.previewRows,
-      });
-    } catch (err) {
-      alert(err.message || "Bank import preview failed.");
-    }
-  }, []);
-
-  const handleUpdateMapping = useCallback(async (name, value) => {
-    const newMapping = { ...bankImport.mapping, [name]: value };
-    setBankImport((previous) => ({
-      ...previous,
-      mapping: newMapping,
-    }));
-    // Recompute preview from backend so the table stays in sync
-    if (bankImport.rows.length) {
-      try {
-        // Re-serialize the original rows to CSV text for the backend call
-        const headerLine = bankImport.headers.join(",");
-        const bodyLines = bankImport.rows.map((row) =>
-          bankImport.headers.map((h) => {
-            const cell = row[h] || "";
-            return /[",\r\n]/.test(cell) ? `"${cell.replaceAll('"', '""')}"` : cell;
-          }).join(",")
-        );
-        const csvText = [headerLine, ...bodyLines].join("\r\n");
-        const result = await api.bankImportPreview(csvText, newMapping);
-        setBankImport((previous) => ({
-          ...previous,
-          previewRows: result.previewRows,
-        }));
-      } catch {
-        // Silently keep the stale preview if the backend call fails
-      }
-    }
-  }, [bankImport.headers, bankImport.rows]);
-
-  const handleAddImportedTransactions = useCallback(async () => {
-    try {
-      await mutate(() => api.bankImportApply(bankImport.rows, bankImport.mapping));
-      setCurrentView("transactions");
-      setBankImport({ headers: [], rows: [], mapping: {}, previewRows: [] });
-    } catch (err) {
-      alert(err.message || "Bank import apply failed.");
-    }
-  }, [mutate, bankImport]);
-
-  // -----------------------------------------------------------------------
-  // Loading / error states
-  // -----------------------------------------------------------------------
-
-  if (loading && !state) {
-    return (
-      <AppShell
-        topBar={<header className="topbar"><h1>Envelope Expense Tracker</h1></header>}
-        tabs={null}
-      >
-        <p className="notice">Loading app state from backend&hellip;</p>
-      </AppShell>
-    );
-  }
-
-  if (error && !state) {
-    return (
-      <AppShell
-        topBar={<header className="topbar"><h1>Envelope Expense Tracker</h1></header>}
-        tabs={null}
-      >
-        <p className="notice error">
-          Could not connect to the backend. Make sure FastAPI is running and the Vite proxy is configured.
-        </p>
-        <button type="button" onClick={refresh}>Retry</button>
-      </AppShell>
-    );
-  }
-
+  const navigateWarning = useCallback((warning) => { const destination = getWarningDestination(warning, state); if (destination) changeView(destination.view, destination); else changeView("warnings"); }, [changeView, state]);
+  if (loading && !state) return <AppShell topBar={<header className="topbar"><h1>Envelope Expense Tracker</h1></header>} tabs={null}><p className="notice">Loading app state...</p></AppShell>;
+  if (error && !state) return <AppShell topBar={<header className="topbar"><h1>Envelope Expense Tracker</h1></header>} tabs={null}><p className="notice error">Could not connect to the backend.</p><button onClick={refresh}>Retry</button></AppShell>;
   if (!state) return null;
 
-  // -----------------------------------------------------------------------
-  // Render
-  // -----------------------------------------------------------------------
-
-  const topBar = (
-    <TopBar
-      title={VIEW_TITLES[currentView] || "Dashboard"}
-      selectedMonth={selectedMonth}
-      months={months}
-      dataFileName={dataFileName}
-      automationStatus={automationStatus}
-      onMonthChange={handleMonthChange}
-      onImportCsv={handleImportCsv}
-      onExportCsv={handleExportCsv}
-      userEmail={session?.user?.email}
-      onSignOut={onSignOut}
-    />
-  );
-
-  const tabs = <Tabs currentView={currentView} onViewChange={handleViewChange} />;
-
-  return (
-    <AppShell topBar={topBar} tabs={tabs}>
-      {loading && error && (
-        <p className="notice error">Backend error: {error}</p>
-      )}
-
-      {currentView === "dashboard" ? (
-        <DashboardView
-          state={state}
-          summary={summary}
-          availableToAssign={availableToAssign}
-          categoryRows={categoryRows}
-          envelopeRows={envelopeRows}
-          warningCount={warnings.length}
-          warnings={warnings}
-        />
-      ) : null}
-
-      {currentView === "transactions" ? (
-        <TransactionsView
-          state={state}
-          config={config}
-          onAddTransaction={handleAddTransaction}
-          onUpdateTransaction={handleUpdateTransaction}
-          onDeleteTransaction={handleDeleteTransaction}
-        />
-      ) : null}
-
-      {currentView === "automatic" ? (
-        <AutomaticTransactionsView
-          state={state}
-          config={config}
-          onAddAutomaticTransaction={handleAddAutomaticTransaction}
-          onUpdateAutomaticTransaction={handleUpdateAutomaticTransaction}
-          onDeleteAutomaticTransaction={handleDeleteAutomaticTransaction}
-        />
-      ) : null}
-
-      {currentView === "monthly" ? (
-        <MonthlySetupView
-          state={state}
-          availableToAssign={availableToAssign}
-          envelopeRows={envelopeRows}
-          onSaveMonthlySetup={handleSaveMonthlySetup}
-          onDirtyChange={setHasUnsavedChanges}
-          onFillMissingMonthlySetup={handleFillMissingMonthlySetup}
-        />
-      ) : null}
-
-      {currentView === "categories" ? (
-        <CategoriesView
-          state={state}
-          onAddCategory={handleAddCategory}
-          onUpdateCategory={handleUpdateCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onAddSubcategory={handleAddSubcategory}
-          onUpdateSubcategory={handleUpdateSubcategory}
-          onDeleteSubcategory={handleDeleteSubcategory}
-          onDirtyChange={setHasUnsavedChanges}
-        />
-      ) : null}
-
-      {currentView === "accounts" ? (
-        <AccountsView
-          state={state}
-          accountBalances={accountBalances}
-          onAddAccount={handleAddAccount}
-          onUpdateAccount={handleUpdateAccount}
-          onDeleteAccount={handleDeleteAccount}
-        />
-      ) : null}
-
-      {currentView === "import" ? (
-        <BankImportView
-          state={state}
-          bankImport={bankImport}
-          onLoadBankCsv={handleLoadBankCsv}
-          onUpdateMapping={handleUpdateMapping}
-          onAddImportedTransactions={handleAddImportedTransactions}
-        />
-      ) : null}
-
-      {currentView === "warnings" ? <WarningsView warnings={warnings} /> : null}
-    </AppShell>
-  );
+  const topBar = <TopBar title={VIEW_TITLES[currentView]} selectedMonth={selectedMonth} months={config?.months || []} onMonthChange={handleMonthChange} onAddTransaction={() => openEditor()} onRestoreBackup={selectBackup} onDownloadBackup={downloadBackup} userEmail={session?.user?.email} onSignOut={handleSignOut} />;
+  const tabs = <Tabs currentView={currentView} onViewChange={changeView} />;
+  return <AppShell topBar={topBar} tabs={tabs} userEmail={session?.user?.email} onSignOut={handleSignOut}>
+    {error && <SaveStatus status="error" message={error} onDismiss={clearError} />}
+    {currentView === "dashboard" && <DashboardView state={state} summary={summary} availableToAssign={derived?.availableToAssign ?? 0} categoryRows={derived?.categoryRows || []} envelopeRows={derived?.envelopeRows || []} warnings={warnings} onNavigate={(intent) => changeView(intent.view, intent)} onAddTransaction={({ type } = {}) => openEditor({ type })} />}
+    {currentView === "transactions" && <TransactionsView state={state} intent={transactionIntent} onAddTransaction={() => openEditor()} onEditTransaction={(transaction) => openEditor({ transaction, triggerId: `edit-${transaction.id}` })} onDeleteTransaction={(id) => mutate(() => api.deleteTransaction(id))} />}
+    {currentView === "automatic" && <AutomaticTransactionsView state={state} config={config} onAddAutomaticTransaction={(form) => mutate(() => api.createAutomaticTransaction(form))} onUpdateAutomaticTransaction={(id, field, value) => mutate(() => api.updateAutomaticTransaction(id, field, value))} onDeleteAutomaticTransaction={(id) => mutate(() => api.deleteAutomaticTransaction(id))} onDirtyChange={sharedDirty} disabled={isMutating} />}
+    {currentView === "monthly" && <MonthlySetupView state={state} availableToAssign={derived?.availableToAssign ?? 0} envelopeRows={derived?.envelopeRows || []} intent={monthlyIntent} onSaveMonthlySetup={(updates) => mutate(() => api.updateMonthlySetupBatch(updates))} onDirtyChange={sharedDirty} onFillMissingMonthlySetup={() => mutate(() => api.fillMissingMonthlySetup())} />}
+    {currentView === "categories" && <CategoriesView state={state} onAddCategory={(form) => mutate(() => api.createCategory(form))} onUpdateCategory={(id, field, value) => mutate(() => api.updateCategory(id, field, value))} onDeleteCategory={(id) => mutate(() => api.deleteCategory(id))} onAddSubcategory={(form) => mutate(() => api.createSubcategory(form))} onUpdateSubcategory={(id, field, value) => mutate(() => api.updateSubcategory(id, field, value))} onDeleteSubcategory={(id) => mutate(() => api.deleteSubcategory(id))} onDirtyChange={sharedDirty} disabled={isMutating} />}
+    {currentView === "accounts" && <AccountsView state={state} accountBalances={derived?.accountBalances || []} onAddAccount={(form) => mutate(() => api.createAccount(form))} onUpdateAccount={(id, field, value) => mutate(() => api.updateAccount(id, field, value))} onDeleteAccount={(id) => mutate(() => api.deleteAccount(id))} onDirtyChange={sharedDirty} disabled={isMutating} />}
+    {currentView === "import" && <BankImportView state={state} bankImport={bankImport} onLoadBankCsv={loadBankCsv} onUpdateMapping={updateMapping} onAddImportedTransactions={applyBankImport} />}
+    {currentView === "warnings" && <WarningsView warnings={warnings} state={state} onNavigate={navigateWarning} />}
+    <TransactionEditor open={editor.open} transaction={editor.transaction} initialType={editor.initialType} state={state} config={config} onSave={handleSaveTransaction} onClose={closeEditor} onDirtyChange={editorDirty} />
+    <ConfirmDialog open={Boolean(discardAction)} title="Discard unsaved changes?" description="Your current draft will be lost." destructive confirmLabel="Discard changes" onCancel={() => setDiscardAction(null)} onConfirm={async () => { const action = discardAction; setDiscardAction(null); dirtyOwners.current.clear(); await action?.(); }} />
+    <ConfirmDialog open={Boolean(pendingBackup)} title={`Restore ${pendingBackup?.name || "backup"}?`} description="This replaces transactions, accounts, categories, monthly setup, and automatic rules. Download the current backup first if you may need it." destructive confirmLabel="Replace data" onCancel={() => setPendingBackup(null)} onConfirm={restoreBackup} />
+  </AppShell>;
 }

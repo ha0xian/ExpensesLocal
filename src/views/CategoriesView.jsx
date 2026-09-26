@@ -1,143 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { EditableField } from "../components/EditableField.jsx";
+import { SaveStatus } from "../components/SaveStatus.jsx";
 import { Field, Panel, Table } from "../components/ui.jsx";
 
-const categoryGroups = ["Needs", "Wants", "Growth", "Savings", "Business", "Other"];
-const taxOptions = ["No", "Maybe", "Yes"];
-const envelopeStyles = ["Monthly bill", "Variable", "Sinking fund", "Savings goal", "Temporary"];
-
-export function CategoriesView({
-  state,
-  onAddCategory,
-  onUpdateCategory,
-  onDeleteCategory,
-  onAddSubcategory,
-  onUpdateSubcategory,
-  onDeleteSubcategory,
-  onDirtyChange
-}) {
-  const [categoryForm, setCategoryForm] = useState({ name: "", group: "Needs", defaultBudget: "0", taxBusinessReady: "No", notes: "" });
-  const [subcategoryForm, setSubcategoryForm] = useState({
-    category: state.categories[0]?.name || "",
-    name: "",
-    envelopeGroup: "Lifestyle",
-    envelopeStyle: "Monthly bill",
-    defaultMonthlyTarget: "0",
-    notes: ""
-  });
-  const initialBudgets = useMemo(() => ({
-    categories: Object.fromEntries(state.categories.map((item) => [item.id, String(item.defaultBudget)])),
-    subcategories: Object.fromEntries(state.subcategories.map((item) => [item.id, String(item.defaultMonthlyTarget)])),
-  }), [state.categories, state.subcategories]);
-  const [budgetDraft, setBudgetDraft] = useState(initialBudgets);
-  const [saving, setSaving] = useState(false);
-  const dirty = JSON.stringify(budgetDraft) !== JSON.stringify(initialBudgets);
-
-  useEffect(() => setBudgetDraft(initialBudgets), [initialBudgets]);
-  useEffect(() => {
-    onDirtyChange(dirty);
-    return () => onDirtyChange(false);
-  }, [dirty, onDirtyChange]);
-
-  function updateBudgetDraft(collection, id, value) {
-    setBudgetDraft((previous) => ({
-      ...previous,
-      [collection]: { ...previous[collection], [id]: value },
-    }));
-  }
-
-  async function saveBudgets() {
-    setSaving(true);
-    try {
-      for (const item of state.categories) {
-        const value = budgetDraft.categories[item.id];
-        if (value !== initialBudgets.categories[item.id]) {
-          await onUpdateCategory(item.id, "defaultBudget", value);
-        }
-      }
-      for (const item of state.subcategories) {
-        const value = budgetDraft.subcategories[item.id];
-        if (value !== initialBudgets.subcategories[item.id]) {
-          await onUpdateSubcategory(item.id, "defaultMonthlyTarget", value);
-        }
-      }
-    } catch (error) {
-      alert(error.message || "Failed to save budget changes.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function submitCategory(event) {
-    event.preventDefault();
-    if (onAddCategory(categoryForm)) {
-      setCategoryForm({ name: "", group: "Needs", defaultBudget: "0", taxBusinessReady: "No", notes: "" });
-    }
-  }
-
-  function submitSubcategory(event) {
-    event.preventDefault();
-    if (onAddSubcategory(subcategoryForm)) {
-      setSubcategoryForm((previous) => ({ ...previous, name: "", defaultMonthlyTarget: "0", notes: "" }));
-    }
-  }
-
-  return (
-    <>
-      <section className="grid two">
-        <Panel title="Add Category">
-          <form className="form-grid" onSubmit={submitCategory}>
-            <Field label="Name" className="wide"><input value={categoryForm.name} onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })} /></Field>
-            <Field label="Group"><select value={categoryForm.group} onChange={(event) => setCategoryForm({ ...categoryForm, group: event.target.value })}>{categoryGroups.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
-            <Field label="Default Budget"><input type="number" value={categoryForm.defaultBudget} onChange={(event) => setCategoryForm({ ...categoryForm, defaultBudget: event.target.value })} /></Field>
-            <Field label="Tax/Business"><select value={categoryForm.taxBusinessReady} onChange={(event) => setCategoryForm({ ...categoryForm, taxBusinessReady: event.target.value })}>{taxOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
-            <Field label="Notes" className="wide"><input value={categoryForm.notes} onChange={(event) => setCategoryForm({ ...categoryForm, notes: event.target.value })} /></Field>
-            <div className="actions"><button className="primary" type="submit">Add Category</button></div>
-          </form>
-        </Panel>
-        <Panel title="Add Subcategory">
-          <form className="form-grid" onSubmit={submitSubcategory}>
-            <Field label="Category"><select value={subcategoryForm.category} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, category: event.target.value })}>{state.categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></Field>
-            <Field label="Name" className="wide"><input value={subcategoryForm.name} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, name: event.target.value })} /></Field>
-            <Field label="Envelope Group"><input value={subcategoryForm.envelopeGroup} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, envelopeGroup: event.target.value })} /></Field>
-            <Field label="Style"><select value={subcategoryForm.envelopeStyle} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, envelopeStyle: event.target.value })}>{envelopeStyles.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
-            <Field label="Default Target"><input type="number" value={subcategoryForm.defaultMonthlyTarget} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, defaultMonthlyTarget: event.target.value })} /></Field>
-            <Field label="Notes" className="wide"><input value={subcategoryForm.notes} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, notes: event.target.value })} /></Field>
-            <div className="actions"><button className="primary" type="submit">Add Subcategory</button></div>
-          </form>
-        </Panel>
-      </section>
-      <section className="grid two">
-        <Panel
-          title="Categories"
-          action={<button className="primary" type="button" onClick={saveBudgets} disabled={!dirty || saving}>{saving ? "Saving…" : "Save Changes"}</button>}
-        >
-          <Table headers={["Name", "Group", "Default Budget", "Tax/Business", ""]}>
-            {state.categories.map((item) => (
-              <tr key={item.id}>
-                <td><input value={item.name} onChange={(event) => onUpdateCategory(item.id, "name", event.target.value)} /></td>
-                <td><select value={item.group} onChange={(event) => onUpdateCategory(item.id, "group", event.target.value)}>{categoryGroups.map((group) => <option key={group} value={group}>{group}</option>)}</select></td>
-                <td><input type="number" value={budgetDraft.categories[item.id] ?? ""} onChange={(event) => updateBudgetDraft("categories", item.id, event.target.value)} /></td>
-                <td><select value={item.taxBusinessReady} onChange={(event) => onUpdateCategory(item.id, "taxBusinessReady", event.target.value)}>{taxOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></td>
-                <td><button className="danger" type="button" onClick={() => onDeleteCategory(item.id)}>Delete</button></td>
-              </tr>
-            ))}
-          </Table>
-        </Panel>
-        <Panel title="Subcategories">
-          <Table headers={["Category", "Name", "Envelope Group", "Style", "Default Target", ""]}>
-            {state.subcategories.map((item) => (
-              <tr key={item.id}>
-                <td><select value={item.category} onChange={(event) => onUpdateSubcategory(item.id, "category", event.target.value)}>{state.categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></td>
-                <td><input value={item.name} onChange={(event) => onUpdateSubcategory(item.id, "name", event.target.value)} /></td>
-                <td><input value={item.envelopeGroup} onChange={(event) => onUpdateSubcategory(item.id, "envelopeGroup", event.target.value)} /></td>
-                <td><select value={item.envelopeStyle} onChange={(event) => onUpdateSubcategory(item.id, "envelopeStyle", event.target.value)}>{envelopeStyles.map((style) => <option key={style} value={style}>{style}</option>)}</select></td>
-                <td><input type="number" value={budgetDraft.subcategories[item.id] ?? ""} onChange={(event) => updateBudgetDraft("subcategories", item.id, event.target.value)} /></td>
-                <td><button className="danger" type="button" onClick={() => onDeleteSubcategory(item.id)}>Delete</button></td>
-              </tr>
-            ))}
-          </Table>
-        </Panel>
-      </section>
-    </>
-  );
+const GROUPS = ["Needs", "Wants", "Growth", "Savings", "Business", "Other"];
+const TAX = ["No", "Maybe", "Yes"];
+const STYLES = ["Monthly bill", "Variable", "Sinking fund", "Savings goal", "Temporary"];
+const EMPTY_CATEGORY = { name: "", group: "Needs", defaultBudget: "0", taxBusinessReady: "No", notes: "" };
+export function CategoriesView({ state, onAddCategory, onUpdateCategory, onDeleteCategory, onAddSubcategory, onUpdateSubcategory, onDeleteSubcategory, onDirtyChange, disabled }) {
+  const emptySubcategory = useMemo(() => ({ category: state.categories[0]?.name || "", name: "", envelopeGroup: "Lifestyle", envelopeStyle: "Monthly bill", defaultMonthlyTarget: "0", notes: "" }), [state.categories]);
+  const serverBudgets = useMemo(() => ({ categories: Object.fromEntries(state.categories.map((item) => [item.id, String(item.defaultBudget)])), subcategories: Object.fromEntries(state.subcategories.map((item) => [item.id, String(item.defaultMonthlyTarget)])) }), [state.categories, state.subcategories]);
+  const [categoryForm, setCategoryForm] = useState(EMPTY_CATEGORY); const [subcategoryForm, setSubcategoryForm] = useState(emptySubcategory); const [baseline, setBaseline] = useState(serverBudgets); const [draft, setDraft] = useState(serverBudgets); const [status, setStatus] = useState("idle"); const [message, setMessage] = useState(""); const fieldDirty = useRef(new Set());
+  const budgetDirty = JSON.stringify(draft) !== JSON.stringify(baseline); const formDirty = JSON.stringify(categoryForm) !== JSON.stringify(EMPTY_CATEGORY) || Boolean(subcategoryForm.name || subcategoryForm.notes || subcategoryForm.defaultMonthlyTarget !== "0");
+  useEffect(() => { if (!budgetDirty && status !== "saving") { setBaseline(serverBudgets); setDraft(serverBudgets); } }, [serverBudgets, budgetDirty, status]);
+  useEffect(() => { onDirtyChange(budgetDirty || formDirty || fieldDirty.current.size > 0); return () => onDirtyChange(false); }, [budgetDirty, formDirty, onDirtyChange]);
+  const reportDirty = (key) => (dirty) => { if (dirty) fieldDirty.current.add(key); else fieldDirty.current.delete(key); onDirtyChange(budgetDirty || formDirty || fieldDirty.current.size > 0); };
+  function setBudget(collection, id, value) { setDraft((previous) => ({ ...previous, [collection]: { ...previous[collection], [id]: value } })); }
+  async function saveBudgets() { const updates = [...state.categories.map((item) => ({ collection: "categories", item, field: "defaultBudget", save: onUpdateCategory })), ...state.subcategories.map((item) => ({ collection: "subcategories", item, field: "defaultMonthlyTarget", save: onUpdateSubcategory }))].filter(({ collection, item }) => draft[collection][item.id] !== baseline[collection][item.id]); setStatus("saving"); setMessage(""); let saved = 0; for (const update of updates) { try { await update.save(update.item.id, update.field, draft[update.collection][update.item.id]); setBaseline((previous) => ({ ...previous, [update.collection]: { ...previous[update.collection], [update.item.id]: draft[update.collection][update.item.id] } })); saved += 1; } catch (reason) { setMessage(`${saved} change(s) saved. ${reason.message || "The remaining changes were not saved."}`); setStatus("error"); return; } } setStatus("saved"); setMessage(`${saved} budget change(s) saved.`); }
+  async function submitCategory(event) { event.preventDefault(); setStatus("saving"); try { await onAddCategory(categoryForm); setCategoryForm(EMPTY_CATEGORY); setStatus("saved"); } catch (reason) { setMessage(reason.message); setStatus("error"); } }
+  async function submitSubcategory(event) { event.preventDefault(); setStatus("saving"); try { await onAddSubcategory(subcategoryForm); setSubcategoryForm(emptySubcategory); setStatus("saved"); } catch (reason) { setMessage(reason.message); setStatus("error"); } }
+  const textEditor = (props) => <Input {...props} />; const selectEditor = (options) => ({ value, onChange, ...props }) => <select value={value} onChange={(event) => onChange(event.target.value)} {...props}>{options.map((item) => <option key={item}>{item}</option>)}</select>;
+  return <section aria-labelledby="categories-heading"><h2 id="categories-heading" className="sr-only" tabIndex="-1">Categories</h2><div className="grid two"><Panel title="Add category"><form className="form-grid" onSubmit={submitCategory}><Field label="Name" className="wide"><Input value={categoryForm.name} onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })} required /></Field><Field label="Group"><select value={categoryForm.group} onChange={(event) => setCategoryForm({ ...categoryForm, group: event.target.value })}>{GROUPS.map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Default budget"><Input type="number" value={categoryForm.defaultBudget} onChange={(event) => setCategoryForm({ ...categoryForm, defaultBudget: event.target.value })} /></Field><div className="actions"><Button type="submit" disabled={disabled}>Add category</Button></div></form></Panel><Panel title="Add subcategory"><form className="form-grid" onSubmit={submitSubcategory}><Field label="Category"><select value={subcategoryForm.category} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, category: event.target.value })}>{state.categories.map((item) => <option key={item.id}>{item.name}</option>)}</select></Field><Field label="Name"><Input value={subcategoryForm.name} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, name: event.target.value })} required /></Field><Field label="Default target"><Input type="number" value={subcategoryForm.defaultMonthlyTarget} onChange={(event) => setSubcategoryForm({ ...subcategoryForm, defaultMonthlyTarget: event.target.value })} /></Field><div className="actions"><Button type="submit" disabled={disabled}>Add subcategory</Button></div></form></Panel></div><SaveStatus status={status} message={message} onDismiss={() => setStatus("idle")} /><div className="grid two"><Panel title="Categories" subtitle="Budgets save together; other fields save individually." action={<Button onClick={saveBudgets} disabled={!budgetDirty || status === "saving"}>Save budgets</Button>}><Table label="Categories" headers={["Name", "Group", "Default budget", "Tax", ""]}>{state.categories.map((item) => <tr key={item.id}><td><EditableField label={`${item.name} name`} value={item.name} renderInput={textEditor} onSave={(value) => onUpdateCategory(item.id, "name", value)} onDirtyChange={reportDirty(`${item.id}-name`)} disabled={disabled} /></td><td><EditableField label={`${item.name} group`} value={item.group} renderInput={selectEditor(GROUPS)} onSave={(value) => onUpdateCategory(item.id, "group", value)} onDirtyChange={reportDirty(`${item.id}-group`)} disabled={disabled} /></td><td><Input type="number" value={draft.categories[item.id] ?? ""} onChange={(event) => setBudget("categories", item.id, event.target.value)} disabled={status === "saving"} /></td><td><EditableField label={`${item.name} tax status`} value={item.taxBusinessReady} renderInput={selectEditor(TAX)} onSave={(value) => onUpdateCategory(item.id, "taxBusinessReady", value)} onDirtyChange={reportDirty(`${item.id}-tax`)} disabled={disabled} /></td><td><Button variant="ghost" size="sm" onClick={() => onDeleteCategory(item.id)}>Delete</Button></td></tr>)}</Table></Panel><Panel title="Subcategories"><Table label="Subcategories" headers={["Category", "Name", "Group", "Style", "Default target", ""]}>{state.subcategories.map((item) => <tr key={item.id}><td><EditableField label={`${item.name} category`} value={item.category} renderInput={selectEditor(state.categories.map((category) => category.name))} onSave={(value) => onUpdateSubcategory(item.id, "category", value)} onDirtyChange={reportDirty(`${item.id}-category`)} disabled={disabled} /></td><td><EditableField label={`${item.name} name`} value={item.name} renderInput={textEditor} onSave={(value) => onUpdateSubcategory(item.id, "name", value)} onDirtyChange={reportDirty(`${item.id}-name`)} disabled={disabled} /></td><td><EditableField label={`${item.name} envelope group`} value={item.envelopeGroup} renderInput={textEditor} onSave={(value) => onUpdateSubcategory(item.id, "envelopeGroup", value)} onDirtyChange={reportDirty(`${item.id}-group`)} disabled={disabled} /></td><td><EditableField label={`${item.name} style`} value={item.envelopeStyle} renderInput={selectEditor(STYLES)} onSave={(value) => onUpdateSubcategory(item.id, "envelopeStyle", value)} onDirtyChange={reportDirty(`${item.id}-style`)} disabled={disabled} /></td><td><Input type="number" value={draft.subcategories[item.id] ?? ""} onChange={(event) => setBudget("subcategories", item.id, event.target.value)} disabled={status === "saving"} /></td><td><Button variant="ghost" size="sm" onClick={() => onDeleteSubcategory(item.id)}>Delete</Button></td></tr>)}</Table></Panel></div></section>;
 }

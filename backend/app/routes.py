@@ -40,6 +40,7 @@ from .state_service import (
     update_selected_month,
     update_subcategory,
     update_transaction,
+    update_transaction_fields,
 )
 
 router = APIRouter(prefix="/api")
@@ -138,6 +139,10 @@ async def post_transaction(payload: dict):
 @router.patch("/transactions/{transaction_id}")
 @_handle_errors
 async def patch_transaction(transaction_id: str, payload: dict):
+    if "changes" in payload:
+        if "field" in payload or "value" in payload or len(payload) != 1:
+            raise HTTPException(status_code=400, detail="Use either changes or field/value, not both.")
+        return update_transaction_fields(transaction_id, payload.get("changes"))
     field = payload.get("field", "")
     value = payload.get("value")
     if not field:

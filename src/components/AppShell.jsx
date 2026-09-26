@@ -1,24 +1,5 @@
-export function AppShell({ topBar, tabs, children }) {
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-mark" aria-label="Envelope Expense Tracker">
-          <span className="brand-icon">E</span>
-          <span>
-            <strong>Envelope</strong>
-            <small>Expense Tracker</small>
-          </span>
-        </div>
-        {tabs}
-        <div className="sidebar-foot">
-          <span className="storage-dot" aria-hidden="true" />
-          <span>Server storage</span>
-        </div>
-      </aside>
-      <div className="app-main">
-        {topBar}
-        <main id="app" className="workspace" tabIndex="-1">{children}</main>
-      </div>
-    </div>
-  );
-}
+import { LogOut, UserRound } from "lucide-react";
+import { Button } from "./ui/button.jsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "./ui/dropdown-menu.jsx";
+
+export function AppShell({ topBar, tabs, children, userEmail, onSignOut }) { return <div className="app-shell"><a className="skip-link" href="#app">Skip to content</a><aside className="sidebar"><div className="brand-mark" aria-label="Envelope Expense Tracker"><span className="brand-icon">E</span><span><strong>Envelope</strong><small>Expense Tracker</small></span></div>{tabs}<div className="sidebar-foot">{userEmail && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="account-button"><UserRound />{userEmail}</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuLabel>Account</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuItem onSelect={onSignOut}><LogOut />Sign out</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>}</div></aside><div className="app-main"><div className="mobile-shell-nav">{tabs}</div>{topBar}<main id="app" className="workspace" tabIndex="-1">{children}</main></div></div>; }

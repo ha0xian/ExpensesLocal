@@ -1,144 +1,20 @@
-import { useState } from "react";
-import { Field, Panel, Table } from "../components/ui.jsx";
-import { money, subcategoriesFor } from "../lib/app-helpers.js";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { EmptyState, Panel, StatusPill, Table } from "../components/ui.jsx";
+import { money } from "../lib/app-helpers.js";
+import { filterTransactions } from "../lib/presentation.js";
 
-const TRANSACTION_TYPES = ["Expense", "Income", "Transfer"];
-
-const FALLBACK_PRESETS = ["Weekly", "Biweekly", "Monthly", "Quarterly", "Yearly", "Custom"];
-const FALLBACK_UNITS = ["Days", "Weeks", "Months", "Years"];
-
-function todayLocal() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-export function TransactionsView({
-  state,
-  config,
-  onAddTransaction,
-  onUpdateTransaction,
-  onDeleteTransaction
-}) {
-  const recurrencePresets = config?.recurrencePresets || FALLBACK_PRESETS;
-  const recurrenceUnits = config?.recurrenceUnits || FALLBACK_UNITS;
-
-  const firstCategory = state.categories[0]?.name || "";
-  const [form, setForm] = useState({
-    date: todayLocal(),
-    type: "Expense",
-    category: firstCategory,
-    subcategory: subcategoriesFor(state, firstCategory)[0]?.name || "",
-    account: state.accounts[0]?.name || "",
-    amount: "",
-    merchantPayee: "",
-    description: "",
-    notes: "",
-    makeAutomatic: false,
-    endDate: "",
-    frequency: "Monthly",
-    customInterval: "1",
-    customUnit: "Months"
-  });
-
-  const addSubcategories = subcategoriesFor(state, form.category);
-
-  function updateForm(name, value) {
-    setForm((previous) => {
-      const next = { ...previous, [name]: value };
-      if (name === "category") {
-        next.subcategory = subcategoriesFor(state, value)[0]?.name || "";
-      }
-      return next;
-    });
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    const success = await onAddTransaction(form);
-    if (success) {
-      setForm((previous) => ({
-        ...previous,
-        date: todayLocal(),
-        amount: "",
-        merchantPayee: "",
-        description: "",
-        notes: "",
-        makeAutomatic: false,
-        endDate: "",
-        frequency: "Monthly",
-        customInterval: "1",
-        customUnit: "Months"
-      }));
-    }
-  }
-
-  return (
-    <>
-      <Panel title="Add Transaction" subtitle="Amounts are stored as positive numbers; type controls cashflow direction.">
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <Field label="Date"><input name="date" type="date" value={form.date} onChange={(event) => updateForm("date", event.target.value)} /></Field>
-          <Field label="Type">
-            <select name="type" value={form.type} onChange={(event) => updateForm("type", event.target.value)}>
-              {TRANSACTION_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </Field>
-          <Field label="Category">
-            <select name="category" value={form.category} onChange={(event) => updateForm("category", event.target.value)}>
-              {state.categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Subcategory">
-            <select name="subcategory" value={form.subcategory} onChange={(event) => updateForm("subcategory", event.target.value)}>
-              {addSubcategories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Amount"><input name="amount" type="number" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} /></Field>
-          <Field label="Merchant/Payee (optional)" className="wide"><input name="merchantPayee" value={form.merchantPayee} onChange={(event) => updateForm("merchantPayee", event.target.value)} /></Field>
-          <Field label="Description (optional)" className="wide"><input name="description" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
-          <Field label="Notes (optional)" className="wide"><input name="notes" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} /></Field>
-          <label className="check-field"><input name="makeAutomatic" type="checkbox" checked={form.makeAutomatic} onChange={(event) => updateForm("makeAutomatic", event.target.checked)} /><span>Make automatic</span></label>
-          {form.makeAutomatic ? (
-            <>
-              <Field label="Frequency">
-                <select name="frequency" value={form.frequency} onChange={(event) => updateForm("frequency", event.target.value)}>
-                  {recurrencePresets.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </Field>
-              {form.frequency === "Custom" ? (
-                <>
-                  <Field label="Every"><input name="customInterval" type="number" min="1" value={form.customInterval} onChange={(event) => updateForm("customInterval", event.target.value)} /></Field>
-                  <Field label="Unit">
-                    <select name="customUnit" value={form.customUnit} onChange={(event) => updateForm("customUnit", event.target.value)}>
-                      {recurrenceUnits.map((item) => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                  </Field>
-                </>
-              ) : null}
-              <Field label="End Date"><input name="endDate" type="date" value={form.endDate} onChange={(event) => updateForm("endDate", event.target.value)} /></Field>
-            </>
-          ) : null}
-          <div className="actions"><button className="primary" type="submit">Add Transaction</button></div>
-        </form>
-      </Panel>
-      <Panel title="Transactions" subtitle="Edit inline or delete rows.">
-        <Table headers={["Date", "Type", "Category", "Subcategory", "Account", "Merchant", "Amount", ""]}>
-          {(state.transactions || []).map((item) => (
-            <tr key={item.id}>
-              <td><input type="date" value={item.date} onChange={(event) => onUpdateTransaction(item.id, "date", event.target.value)} /></td>
-              <td><select value={item.type} onChange={(event) => onUpdateTransaction(item.id, "type", event.target.value)}>{TRANSACTION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></td>
-              <td><select value={item.category} onChange={(event) => onUpdateTransaction(item.id, "category", event.target.value)}>{state.categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></td>
-              <td><select value={item.subcategory} onChange={(event) => onUpdateTransaction(item.id, "subcategory", event.target.value)}>{subcategoriesFor(state, item.category).map((subcategory) => <option key={subcategory.id} value={subcategory.name}>{subcategory.name}</option>)}</select></td>
-              <td><select value={item.account} onChange={(event) => onUpdateTransaction(item.id, "account", event.target.value)}>{state.accounts.map((account) => <option key={account.id} value={account.name}>{account.name}</option>)}</select></td>
-              <td><input value={item.merchantPayee || ""} onChange={(event) => onUpdateTransaction(item.id, "merchantPayee", event.target.value)} /></td>
-              <td><input type="number" value={item.amount} onChange={(event) => onUpdateTransaction(item.id, "amount", event.target.value)} /></td>
-              <td><button className="danger" type="button" onClick={() => onDeleteTransaction(item.id)}>Delete</button></td>
-            </tr>
-          ))}
-        </Table>
-      </Panel>
-    </>
-  );
+function FilterSelect({ label, value, options, onChange }) { const plural = label === "Category" ? "categories" : `${label.toLowerCase()}s`; return <Select value={value || "all"} onValueChange={(next) => onChange(next === "all" ? "" : next)}><SelectTrigger aria-label={label}><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="all">All {plural}</SelectItem>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectGroup></SelectContent></Select>; }
+export function TransactionsView({ state, intent, onAddTransaction, onEditTransaction, onDeleteTransaction }) {
+  const [query, setQuery] = useState(""); const [category, setCategory] = useState(""); const [account, setAccount] = useState(""); const [scope, setScope] = useState("month"); const [deleteItem, setDeleteItem] = useState(null);
+  useEffect(() => { if (intent?.allMonths) { setScope("all"); setQuery(""); setCategory(""); setAccount(""); } if (intent?.transactionId) requestAnimationFrame(() => document.getElementById(`transaction-${intent.transactionId}`)?.focus()); }, [intent]);
+  const rows = useMemo(() => filterTransactions(state.transactions, { month: state.selectedMonth, allMonths: scope === "all", query, category, account }), [state.transactions, state.selectedMonth, scope, query, category, account]);
+  const anyFilters = Boolean(query || category || account);
+  return <section aria-labelledby="transactions-heading"><div className="view-heading"><div><h2 id="transactions-heading" tabIndex="-1">Transaction ledger</h2><p>Review saved entries. Editing sends one update when you save.</p></div><Button onClick={onAddTransaction}>Add transaction</Button></div>{intent?.savedOutsideMonth && <p className="notice success">Saved outside the selected month. All months is shown so you can review it.</p>}<Panel><div className="ledger-toolbar"><Input aria-label="Search transactions" placeholder="Search merchant, description, or notes" value={query} onChange={(event) => setQuery(event.target.value)} /><FilterSelect label="Category" value={category} options={state.categories.map((item) => item.name)} onChange={setCategory} /><FilterSelect label="Account" value={account} options={state.accounts.map((item) => item.name)} onChange={setAccount} /><ToggleGroup type="single" value={scope} onValueChange={(value) => value && setScope(value)} aria-label="Transaction month scope"><ToggleGroupItem value="month">Selected month</ToggleGroupItem><ToggleGroupItem value="all">All months</ToggleGroupItem></ToggleGroup></div>
+    {!rows.length ? <EmptyState title={anyFilters ? "No matching transactions" : scope === "month" ? "No transactions this month" : "No transactions yet"} message={anyFilters ? "Clear the filters to see more entries." : "Add a transaction to start your ledger."} action={anyFilters ? <Button variant="outline" onClick={() => { setQuery(""); setCategory(""); setAccount(""); }}>Clear filters</Button> : <Button onClick={onAddTransaction}>Add transaction</Button>} /> : <><div className="ledger-desktop"><Table label="Transactions" headers={["Date", "Merchant", "Category", "Account", "Amount", ""]}>{rows.map((item) => <tr id={`transaction-${item.id}`} tabIndex="-1" className={intent?.transactionId === item.id ? "is-highlighted" : ""} key={item.id}><td>{item.date || "Invalid date"}</td><td><strong className="table-primary">{item.merchantPayee || item.description || "Untitled transaction"}</strong>{item.merchantPayee && item.description ? <span className="table-secondary">{item.description}</span> : null}</td><td><strong className="table-primary">{item.category}</strong><span className="table-secondary">{item.subcategory}</span></td><td>{item.account}</td><td className="money"><StatusPill tone={item.type === "Income" ? "success" : "neutral"}>{item.type}</StatusPill> {money(item.amount, state.currency)}</td><td><div className="row-actions"><Button id={`edit-${item.id}`} variant="outline" size="sm" onClick={() => onEditTransaction(item)}>Edit</Button><Button variant="ghost" size="sm" onClick={() => setDeleteItem(item)}>Delete</Button></div></td></tr>)}</Table></div><div className="ledger-mobile">{rows.map((item) => <article id={`transaction-${item.id}`} tabIndex="-1" key={item.id}><div><strong>{item.merchantPayee || item.description || "Untitled transaction"}</strong><span>{item.date} · {item.category} / {item.subcategory}</span><span>{item.account}</span></div><div><strong>{money(item.amount, state.currency)}</strong><span>{item.type}</span></div><Button id={`edit-${item.id}`} variant="outline" size="sm" onClick={() => onEditTransaction(item)}>Edit</Button></article>)}</div></>}
+  </Panel><ConfirmDialog open={Boolean(deleteItem)} title="Delete transaction?" description={`${deleteItem?.merchantPayee || deleteItem?.description || "This transaction"} will be permanently removed.`} destructive confirmLabel="Delete transaction" onCancel={() => setDeleteItem(null)} onConfirm={async () => { await onDeleteTransaction(deleteItem.id); setDeleteItem(null); }} /></section>;
 }

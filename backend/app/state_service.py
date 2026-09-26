@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import secrets
 from datetime import date
+import math
 from pathlib import Path
 
 from .automatic_transactions import RECURRENCE_PRESETS, RECURRENCE_UNITS
@@ -517,6 +518,60 @@ def update_monthly_setup_batch(updates: list[dict]) -> dict:
     state["monthlySetup"] = [
         items_by_id[item["id"]] for item in state.get("monthlySetup", [])
     ]
+    save_state(state)
+    return _build_snapshot(state, auto_status)
+
+
+def update_transaction_fields(transaction_id: str, changes: dict) -> dict:
+    """Validate a complete transaction candidate and persist it atomically."""
+    if not isinstance(changes, dict) or not changes:
+        raise ValueError("Changes must be a non-empty object.")
+    allowed = {
+        "date", "type", "category", "subcategory", "account",
+        "merchantPayee", "description", "notes", "amount",
+    }
+    unknown = set(changes) - allowed
+    if unknown:
+        raise ValueError(f"Unknown transaction field: {sorted(unknown)[0]}")
+
+    state, auto_status = _load_and_automate(run_automation=False)
+    transactions = state.get("transactions", [])
+    existing = next((item for item in transactions if item.get("id") == transaction_id), None)
+    if existing is None:
+        raise LookupError(f"Transaction not found: {transaction_id}")
+
+    candidate = {**existing, **changes}
+    if not _parse_date_strict(str(candidate.get("date", ""))):
+        raise ValueError("Date must be a valid date (YYYY-MM-DD).")
+    if candidate.get("type") not in {"Expense", "Income", "Transfer"}:
+        raise ValueError("Type must be Expense, Income, or Transfer.")
+    try:
+        amount = float(candidate.get("amount"))
+    except (TypeError, ValueError):
+        raise ValueError("A finite positive amount is required.")
+    if not math.isfinite(amount) or amount <= 0:
+        raise ValueError("A finite positive amount is required.")
+    candidate["amount"] = amount
+
+    accounts = {item.get("name") for item in state.get("accounts", [])}
+    if candidate.get("account") not in accounts:
+        raise ValueError("Account must reference an existing account.")
+    categories = {item.get("name") for item in state.get("categories", [])}
+    if candidate.get("category") not in categories:
+        raise ValueError("Category must reference an existing category.")
+    valid_subcategories = {
+        item.get("name") for item in state.get("subcategories", [])
+        if item.get("category") == candidate.get("category")
+    }
+    if candidate.get("subcategory") not in valid_subcategories:
+        raise ValueError("Subcategory must belong to the selected category.")
+
+    candidate["month"] = get_transaction_month(candidate["date"])
+    state["transactions"] = [
+        candidate if item.get("id") == transaction_id else item
+        for item in transactions
+    ]
+    state = _normalize_state(state)
     save_state(state)
     return _build_snapshot(state, auto_status)
 

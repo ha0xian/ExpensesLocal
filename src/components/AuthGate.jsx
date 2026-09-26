@@ -1,4 +1,10 @@
 import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "./ui/alert.jsx";
+import { Button } from "./ui/button.jsx";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card.jsx";
+import { Field, FieldGroup, FieldLabel } from "./ui/field.jsx";
+import { Input } from "./ui/input.jsx";
+import { Spinner } from "./ui/spinner.jsx";
 
 async function authRequest(path, options = {}) {
   const response = await fetch(`/api/auth${path}`, {
@@ -46,22 +52,19 @@ export function AuthGate({ children }) {
     setSession(null);
   }
 
-  if (session === undefined) return <div className="auth-page"><p>Checking your session…</p></div>;
+  if (session === undefined) return <div className="auth-page"><Spinner /><p>Checking your session...</p></div>;
   if (session) return children({ session, signOut });
 
-  return <main className="auth-page"><section className="auth-card">
-    <p className="auth-eyebrow">Envelope Expense Tracker</p>
-    <h1>{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
-    <p>Your budgets and transactions stay private to your account.</p>
-    <form onSubmit={submit}>
-      <label className="field"><span>Email</span><input name="email" type="email" autoComplete="email" required /></label>
-      <label className="field"><span>Password</span><input name="password" type="password" minLength="8" maxLength="128" autoComplete={mode === "signup" ? "new-password" : "current-password"} required /></label>
-      <button type="submit" disabled={submitting}>{submitting ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}</button>
-    </form>
-    {message && <p className="notice error">{message}</p>}
-    <button className="auth-link" type="button" onClick={() => {
+  return <main className="auth-page"><Card className="auth-card"><CardHeader><p className="auth-eyebrow">Envelope Expense Tracker</p><CardTitle>{mode === "signup" ? "Create your account" : "Welcome back"}</CardTitle><CardDescription>Your budgets and transactions stay private to your account.</CardDescription></CardHeader><CardContent>
+    <form onSubmit={submit}><FieldGroup>
+      <Field><FieldLabel htmlFor="auth-email">Email</FieldLabel><Input id="auth-email" name="email" type="email" autoComplete="email" required /></Field>
+      <Field><FieldLabel htmlFor="auth-password">Password</FieldLabel><Input id="auth-password" name="password" type="password" minLength="8" maxLength="128" autoComplete={mode === "signup" ? "new-password" : "current-password"} required /></Field>
+      <Button type="submit" disabled={submitting}>{submitting && <Spinner data-icon="inline-start" />}{submitting ? "Please wait..." : mode === "signup" ? "Create account" : "Sign in"}</Button>
+    </FieldGroup></form>
+    {message && <Alert variant="destructive"><AlertDescription>{message}</AlertDescription></Alert>}
+    <Button variant="link" type="button" onClick={() => {
       setMode(mode === "signup" ? "signin" : "signup");
       setMessage("");
-    }}>{mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}</button>
-  </section></main>;
+    }}>{mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}</Button>
+  </CardContent></Card></main>;
 }

@@ -182,6 +182,13 @@ export function updateMonthlySetupBatch(updates) {
   });
 }
 
+export function updateTransactionFields(id, changes) {
+  return request(`/transactions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ changes }),
+  });
+}
+
 export function fillMissingMonthlySetup() {
   return request("/monthly-setup/fill-missing", { method: "POST" });
 }

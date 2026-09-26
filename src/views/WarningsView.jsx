@@ -1,22 +1,4 @@
-import { EmptyState, Panel, StatusPill, Table } from "../components/ui.jsx";
-
-export function WarningsView({ warnings }) {
-  return (
-    <Panel title="Status Warnings" subtitle={warnings.length ? `${warnings.length} issue(s) found.` : "No issues for the selected month."}>
-      {warnings.length ? (
-        <Table headers={["Severity", "Code", "Message", "Entity"]}>
-          {warnings.map((item, index) => (
-            <tr key={`${item.code}-${item.entityId || index}`}>
-              <td><StatusPill tone={item.severity}>{item.severity}</StatusPill></td>
-              <td>{item.code}</td>
-              <td>{item.message}</td>
-              <td>{item.entityId || ""}</td>
-            </tr>
-          ))}
-        </Table>
-      ) : (
-        <EmptyState title="No warnings" message="Your selected month looks clean." />
-      )}
-    </Panel>
-  );
-}
+import { Button } from "@/components/ui/button";
+import { EmptyState, Panel, StatusPill } from "../components/ui.jsx";
+import { getWarningDestination } from "../lib/presentation.js";
+export function WarningsView({ warnings, state, onNavigate }) { return <section aria-labelledby="warnings-heading"><h2 id="warnings-heading" className="sr-only" tabIndex="-1">Warnings</h2><Panel title="Status warnings" subtitle={warnings.length ? `${warnings.length} issue(s) found.` : "No issues for the selected month."}>{warnings.length ? <div className="warning-list">{warnings.map((item, index) => { const destination = getWarningDestination(item, state); return <article key={`${item.code}-${item.entityId || index}`}><div><StatusPill tone={item.severity}>{item.severity}</StatusPill><strong>{item.message}</strong><details><summary>Technical details</summary><code>{item.code}{item.entityId ? ` / ${item.entityId}` : ""}</code></details></div><Button variant="outline" onClick={() => onNavigate(item)}>{destination?.view === "monthly" ? "Review monthly setup" : destination?.view === "transactions" ? "Review transaction" : "View warning"}</Button></article>; })}</div> : <EmptyState title="No warnings" message="Your selected month looks clean." />}</Panel></section>; }

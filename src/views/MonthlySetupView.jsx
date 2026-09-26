@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Kpi, Panel, Table } from "../components/ui.jsx";
+import { Button } from "@/components/ui/button";
+import { SaveStatus } from "../components/SaveStatus.jsx";
 import { money, sum } from "../lib/app-helpers.js";
 
 export function MonthlySetupView({
@@ -9,6 +11,7 @@ export function MonthlySetupView({
   onSaveMonthlySetup,
   onDirtyChange,
   onFillMissingMonthlySetup
+  , intent
 }) {
   const currency = state.currency;
   const currentRows = state.monthlySetup.filter((item) => item.month === state.selectedMonth);
@@ -24,6 +27,8 @@ export function MonthlySetupView({
   );
   const [draft, setDraft] = useState(initialDraft);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const [saveMessage, setSaveMessage] = useState("");
   const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft);
 
   useEffect(() => setDraft(initialDraft), [initialDraft]);
@@ -51,8 +56,17 @@ export function MonthlySetupView({
       });
     });
     setSaving(true);
-    await onSaveMonthlySetup(updates);
-    setSaving(false);
+    setSaveStatus("saving");
+    try {
+      await onSaveMonthlySetup(updates);
+      setSaveStatus("saved");
+      setSaveMessage(`${updates.length} change(s) saved.`);
+    } catch (error) {
+      setSaveStatus("error");
+      setSaveMessage(error.message || "Monthly setup could not be saved.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -67,10 +81,10 @@ export function MonthlySetupView({
         subtitle="Funding targets, starting balances, and rollover are month-specific."
         action={
           <div className="actions">
-            <button type="button" onClick={onFillMissingMonthlySetup} disabled={dirty}>Fill Missing From Defaults</button>
-            <button className="primary" type="button" onClick={saveChanges} disabled={!dirty || saving}>
+            <Button variant="outline" type="button" onClick={onFillMissingMonthlySetup} disabled={dirty}>Fill missing from defaults</Button>
+            <Button type="button" onClick={saveChanges} disabled={!dirty || saving}>
               {saving ? "Saving…" : "Save Changes"}
-            </button>
+            </Button>
           </div>
         }
       >
@@ -78,7 +92,7 @@ export function MonthlySetupView({
           {currentRows.map((item) => {
             const envelope = envelopeRows.find((row) => row.category === item.category && row.subcategory === item.subcategory);
             return (
-              <tr key={item.id}>
+              <tr key={item.id} className={intent?.attentionOnly && envelope?.overdrawn ? "is-highlighted" : ""}>
                 <td>{item.category}</td>
                 <td>{item.subcategory}</td>
                 <td><input type="number" value={draft[item.id]?.monthlyTarget ?? ""} onChange={(event) => updateDraft(item.id, "monthlyTarget", event.target.value)} /></td>
@@ -91,6 +105,7 @@ export function MonthlySetupView({
             );
           })}
         </Table>
+        <SaveStatus status={saveStatus} message={saveMessage} onDismiss={() => setSaveStatus("idle")} />
       </Panel>
     </>
   );

@@ -1,12 +1,4 @@
-import { cn } from "../../lib/utils.js";
-
-export function Separator({ className, orientation = "horizontal", ...props }) {
-  return (
-    <div
-      aria-orientation={orientation}
-      className={cn("ui-separator", orientation === "vertical" && "ui-separator-vertical", className)}
-      role="separator"
-      {...props}
-    />
-  );
-}
+import { Separator as SeparatorPrimitive } from "radix-ui";
+import { cn } from "@/lib/utils";
+function Separator({ className, orientation = "horizontal", decorative = true, ...props }) { return <SeparatorPrimitive.Root data-slot="separator" decorative={decorative} orientation={orientation} className={cn("shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px", className)} {...props} />; }
+export { Separator };

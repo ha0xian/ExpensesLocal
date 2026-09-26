@@ -1,39 +1,7 @@
-import {
-  AlertTriangle,
-  Banknote,
-  Building2,
-  CalendarDays,
-  LayoutDashboard,
-  ListChecks,
-  Repeat2,
-  Tags,
-} from "lucide-react";
+import { AlertTriangle, Banknote, Building2, CalendarDays, LayoutDashboard, ListChecks, Menu, Repeat2, Tags } from "lucide-react";
+import { Button } from "./ui/button.jsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu.jsx";
 
-const VIEWS = [
-  ["dashboard", "Dashboard", LayoutDashboard],
-  ["transactions", "Transactions", ListChecks],
-  ["automatic", "Automatic", Repeat2],
-  ["monthly", "Monthly Setup", CalendarDays],
-  ["categories", "Categories", Tags],
-  ["accounts", "Accounts", Building2],
-  ["import", "Bank Import", Banknote],
-  ["warnings", "Warnings", AlertTriangle]
-];
-
-export function Tabs({ currentView, onViewChange }) {
-  return (
-    <nav className="tabs" aria-label="Views">
-      {VIEWS.map(([view, label, Icon]) => (
-        <button
-          className={`tab ${currentView === view ? "is-active" : ""}`.trim()}
-          key={view}
-          type="button"
-          onClick={() => onViewChange(view)}
-        >
-          <Icon data-icon="inline-start" />
-          {label}
-        </button>
-      ))}
-    </nav>
-  );
+const VIEWS = [["dashboard", "Dashboard", LayoutDashboard], ["transactions", "Transactions", ListChecks], ["automatic", "Automatic", Repeat2], ["monthly", "Monthly Setup", CalendarDays], ["categories", "Categories", Tags], ["accounts", "Accounts", Building2], ["import", "Bank Import", Banknote], ["warnings", "Warnings", AlertTriangle]];
+export function Tabs({ currentView, onViewChange }) { const active = VIEWS.find(([view]) => view === currentView); return <><nav className="tabs" aria-label="Views">{VIEWS.map(([view, label, Icon]) => <button className={`tab ${currentView === view ? "is-active" : ""}`} aria-current={currentView === view ? "page" : undefined} key={view} type="button" onClick={() => onViewChange(view)}><Icon />{label}</button>)}</nav><div className="mobile-nav"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline"><Menu data-icon="inline-start" />{active?.[1] || "Views"}</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuGroup>{VIEWS.map(([view, label, Icon]) => <DropdownMenuItem key={view} onSelect={() => onViewChange(view)}><Icon />{label}</DropdownMenuItem>)}</DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div></>;
 }

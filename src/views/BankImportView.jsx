@@ -1,5 +1,7 @@
 import { Field, Panel, Table } from "../components/ui.jsx";
 import { money } from "../lib/app-helpers.js";
+import { Button } from "@/components/ui/button";
+import { SaveStatus } from "../components/SaveStatus.jsx";
 
 const mappingFields = [
   ["date", "Date"],
@@ -22,8 +24,10 @@ export function BankImportView({
   const currency = state?.currency || "USD";
 
   return (
-    <Panel title="Bank Import" subtitle="Import a generic bank CSV, map columns, preview transactions, then add them to the app.">
+    <Panel title="Bank Import" subtitle="Add transactions from a bank CSV. This does not replace your existing data.">
       <input type="file" accept=".csv,text/csv" onChange={(event) => onLoadBankCsv(event.target.files[0])} />
+      {bankImport.filename ? <p className="notice"><strong>{bankImport.filename}</strong> · {bankImport.rows.length} source row(s)</p> : null}
+      <SaveStatus status={bankImport.status === "loading" ? "saving" : bankImport.status === "error" ? "error" : "idle"} message={bankImport.error || "Refreshing preview..."} />
       {bankImport.headers.length ? (
         <div className="grid">
           <div className="import-mapping">
@@ -37,8 +41,8 @@ export function BankImportView({
             ))}
           </div>
           <div className="toolbar">
-            <p className="notice">{bankImport.rows.length} source row(s). Previewing up to {bankImport.previewRows.length} converted rows.</p>
-            <button className="primary" type="button" onClick={onAddImportedTransactions}>Add Imported Transactions</button>
+            <p className="notice">Previewing {bankImport.previewRows.length} converted row(s). Imports are additive and are not deduplicated across files.</p>
+            <Button type="button" onClick={onAddImportedTransactions} disabled={bankImport.status !== "ready"}>Add imported transactions</Button>
           </div>
           <Table headers={["Date", "Type", "Category", "Subcategory", "Account", "Description", "Amount"]}>
             {(bankImport.previewRows || []).map((row) => (

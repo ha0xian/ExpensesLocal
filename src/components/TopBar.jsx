@@ -1,45 +1,8 @@
-import { CalendarDays, Database, Download, LogOut, Upload } from "lucide-react";
+import { CalendarDays, Download, MoreHorizontal, Plus, Upload } from "lucide-react";
 import { Button } from "./ui/button.jsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu.jsx";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select.jsx";
 
-export function TopBar({
-  title = "Dashboard",
-  selectedMonth,
-  months,
-  dataFileName,
-  automationStatus,
-  onMonthChange,
-  onImportCsv,
-  onExportCsv,
-  userEmail,
-  onSignOut
-}) {
-  const automationMessage = automationStatus?.changed
-    ? ` Last access metadata updated for ${automationStatus.currentAccessDate}.`
-    : "";
-  const statusLabel = dataFileName ? `${dataFileName} (server)` : "Server storage";
-
-  return (
-    <header className="topbar">
-      <div>
-        <h1>{title}</h1>
-        <p className="support-message">Server-backed expense app.{automationMessage}</p>
-      </div>
-      <div className="topbar-controls">
-        <label className="field compact">
-          <span>Month</span>
-          <span className="select-shell">
-            <CalendarDays data-icon="inline-start" />
-            <select value={selectedMonth} onChange={(event) => onMonthChange(event.target.value)}>
-            {(months || []).map((month) => <option key={month} value={month}>{month}</option>)}
-            </select>
-          </span>
-        </label>
-        <span className="file-status"><Database data-icon="inline-start" />{statusLabel}</span>
-        <Button variant="outline" onClick={onImportCsv}><Upload data-icon="inline-start" />Import CSV</Button>
-        <Button onClick={onExportCsv}><Download data-icon="inline-start" />Export CSV</Button>
-        <span className="account-email">{userEmail}</span>
-        {onSignOut && <Button variant="outline" onClick={onSignOut}><LogOut data-icon="inline-start" />Sign out</Button>}
-      </div>
-    </header>
-  );
+export function TopBar({ title, selectedMonth, months, onMonthChange, onAddTransaction, onRestoreBackup, onDownloadBackup }) {
+  return <header className="topbar"><div className="topbar-title"><h1>{title}</h1></div><div className="topbar-controls"><Select value={selectedMonth} onValueChange={onMonthChange}><SelectTrigger aria-label="Month" className="month-select"><CalendarDays data-icon="inline-start" /><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{months.map((month) => <SelectItem key={month} value={month}>{new Date(`${month}-02T12:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })}</SelectItem>)}</SelectGroup></SelectContent></Select><Button id="add-transaction" onClick={onAddTransaction}><Plus data-icon="inline-start" />Add transaction</Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="More actions"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={onDownloadBackup}><Download />Download backup</DropdownMenuItem><DropdownMenuItem onSelect={onRestoreBackup}><Upload />Restore backup</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div></header>;
 }
