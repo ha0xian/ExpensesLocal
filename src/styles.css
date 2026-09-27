@@ -310,11 +310,31 @@ h3 {
 }
 
 .panel {
+  min-width: 0;
+  container: panel / inline-size;
   overflow: hidden;
 }
 
 .panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0;
+}
+
+.panel-header > div:first-child {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.panel-header > [data-slot="card-action"] {
+  max-width: 100%;
+}
+
+.panel > [data-slot="card-content"] {
+  min-width: 0;
 }
 
 .grid {
@@ -594,12 +614,33 @@ textarea {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  align-items: end;
   gap: 12px;
+}
+
+.form-grid > * {
+  min-width: 0;
 }
 
 .form-grid .wide {
   grid-column: span 2;
+}
+
+.form-grid > .actions,
+.form-grid > .save-status,
+.form-grid > [data-slot="alert"] {
+  grid-column: 1 / -1;
+}
+
+@container panel (max-width: 420px) {
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form-grid .wide {
+    grid-column: auto;
+  }
 }
 
 .actions {
@@ -616,6 +657,11 @@ textarea {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+/* Keep the labelled, keyboard-focusable region as the only scroll container. */
+.table-wrap > [data-slot="table-container"] {
+  overflow: visible;
 }
 
 table {
@@ -914,7 +960,7 @@ tr:last-child td {
   }
 }
 
-@media (max-width: 1060px) {
+@media (max-width: 1023px) {
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -956,7 +1002,6 @@ tr:last-child td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .form-grid,
   .import-mapping {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -980,13 +1025,8 @@ tr:last-child td {
   .grid.two,
   .grid.three,
   .grid.four,
-  .form-grid,
   .import-mapping {
     grid-template-columns: 1fr;
-  }
-
-  .form-grid .wide {
-    grid-column: auto;
   }
 
   .topbar-controls,
@@ -1146,6 +1186,14 @@ tr:last-child td {
 .view-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .view-heading h2 { margin: 0; font-size: 1.65rem; }
 .ledger-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, .45fr) minmax(150px, .45fr) auto; align-items: center; gap: 8px; margin-bottom: 16px; }
+.ledger-toolbar > * { min-width: 0; }
+.ledger-toolbar > [data-slot="toggle-group"] { max-width: 100%; flex-wrap: wrap; }
+@container panel (max-width: 960px) {
+  .ledger-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container panel (max-width: 600px) {
+  .ledger-toolbar { grid-template-columns: minmax(0, 1fr); }
+}
 .ledger-mobile { display: none; }
 .is-highlighted { outline: 3px solid color-mix(in srgb, var(--primary), transparent 65%); outline-offset: -3px; }
 .editable-display { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 150px; }
@@ -1171,7 +1219,6 @@ tr:last-child td {
   .app-shell { display: block; }
   .topbar { position: static; min-height: 0; padding: 12px 16px 16px; border-bottom: 1px solid var(--border); }
   .workspace { padding: 16px; }
-  .ledger-toolbar { grid-template-columns: 1fr 1fr; }
   .detail-grid { grid-template-columns: 1fr 1fr; }
 }
 
@@ -1187,7 +1234,6 @@ tr:last-child td {
   .cashflow-strip { grid-template-columns: 1fr; }
   .cashflow-strip > div + div { border-left: 0; border-top: 1px solid var(--border); }
   .attention-list article, .warning-list article { grid-template-columns: 1fr; }
-  .ledger-toolbar { grid-template-columns: 1fr; }
   .ledger-desktop { display: none; }
   .ledger-mobile { display: flex; flex-direction: column; gap: 8px; }
   .ledger-mobile article { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
@@ -1196,6 +1242,7 @@ tr:last-child td {
   .ledger-mobile article > button { grid-column: 1 / -1; }
   .detail-grid, .editor-pair { grid-template-columns: 1fr; }
   .panel-header { align-items: flex-start; flex-direction: column; }
+  .panel-header > div:first-child { flex-basis: auto; }
   .table-wrap { max-width: 100%; }
 }
 
